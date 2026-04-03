@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-visual" />
+		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws:; media-src 'self' blob:; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'self'" />
+
+		<!-- SEO for crawlers (SPA — JS tags not seen by bots) -->
+		<title>OxPulse — Видеозвонки по ссылке</title>
+		<meta name="description" content="Видеозвонки по ссылке. Открыл — позвонил. Ничего устанавливать не нужно." />
+		<link rel="canonical" href="https://oxpulse.chat/" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+
+		<!-- Local fonts (no Google Fonts dependency) -->
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content="https://oxpulse.chat/" />
+		<meta property="og:title" content="OxPulse — Видеозвонки по ссылке" />
+		<meta property="og:description" content="Открыл — позвонил. Ничего устанавливать не нужно." />
+		<meta property="og:image" content="https://oxpulse.chat/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:site_name" content="OxPulse" />
+		<meta property="og:locale" content="ru_RU" />
+		<meta property="og:locale:alternate" content="en_US" />
+
+		<!-- Twitter Card -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="OxPulse — Видеозвонки по ссылке" />
+		<meta name="twitter:description" content="Открыл — позвонил." />
+		<meta name="twitter:image" content="https://oxpulse.chat/og-image.png" />
+
+		<!-- PWA -->
+		<link rel="manifest" href="/manifest.json" />
+		<meta name="theme-color" content="#08080C" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="OxPulse" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+		<!-- JSON-LD -->
+		<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "WebApplication",
+			"name": "OxPulse",
+			"url": "https://oxpulse.chat/",
+			"description": "Видеозвонки по ссылке. Открыл — позвонил.",
+			"applicationCategory": "CommunicationApplication",
+			"operatingSystem": "Any",
+			"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+			"browserRequirements": "Requires WebRTC support"
+		}
+		</script>
+
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+		<script>
+			// Recovery: if JS modules fail to load (stale cache), clear SW cache and hard reload
+			window.addEventListener('error', function(e) {
+				if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('Loading chunk'))) {
+					if ('serviceWorker' in navigator) {
+						navigator.serviceWorker.getRegistrations().then(function(regs) {
+							return Promise.all(regs.map(function(r) { return r.unregister(); }));
+						}).then(function() {
+							return caches.keys().then(function(keys) {
+								return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+							});
+						}).then(function() {
+							window.location.reload();
+						});
+					} else {
+						window.location.reload();
+					}
+				}
+			});
+			window.addEventListener('unhandledrejection', function(e) {
+				if (e.reason && String(e.reason).includes('Failed to fetch dynamically imported module')) {
+					e.preventDefault();
+					if ('serviceWorker' in navigator) {
+						navigator.serviceWorker.getRegistrations().then(function(regs) {
+							return Promise.all(regs.map(function(r) { return r.unregister(); }));
+						}).then(function() {
+							return caches.keys().then(function(keys) {
+								return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+							});
+						}).then(function() {
+							window.location.reload();
+						});
+					} else {
+						window.location.reload();
+					}
+				}
+			});
+		</script>
+	</body>
+</html>
