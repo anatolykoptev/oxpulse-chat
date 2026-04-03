@@ -18,10 +18,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     cargo build --release --locked --bin oxpulse-chat 2>/dev/null || true
 
-# Layer 2: source
+# Layer 2: source — clean workspace crates so cargo rebuilds them
 COPY crates/ crates/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
+    cargo clean -p oxpulse-signaling -p oxpulse-turn -p oxpulse-chat --release 2>/dev/null || true && \
     cargo build --release --locked --bin oxpulse-chat && \
     cp target/release/oxpulse-chat /binary
 
