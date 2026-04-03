@@ -1,189 +1,164 @@
-# OxPulse Chat — Marketing Plan
+# OxPulse Chat — Marketing Strategy
+
+## Two Markets, One Product
+
+### Market 1: Russia — "Telegram заблокировали, как звонить за границу?"
+
+**Ситуация:** РКН блокирует Telegram, Zoom нестабилен, FaceTime/WhatsApp через VPN — лагает. Миллионы людей в России не могут нормально позвонить родственникам и друзьям за границу. Это не техническая проблема — это бытовая. Мама не может позвонить сыну в Берлин.
+
+**Что мы решаем:** Видеозвонки, которые невидимы для ТСПУ. Не нужен VPN, не нужен аккаунт. Открыл ссылку — позвонил. Трафик маскируется под обычный TLS к samsung.com. Медиа не покидает Россию (coturn на российском сервере).
+
+**Боль:** Конкретная, массовая, ежедневная. Не "privacy-conscious", а "мне нужно поговорить с семьёй".
+
+### Market 2: US Immigration — "Нужна связь, которую не мониторят"
+
+**Ситуация:** Иммигранты в США (undocumented, asylum seekers, visa overstays) нуждаются в безопасной связи. Обычные мессенджеры привязаны к номеру телефона, логируют метаданные, отвечают на запросы ICE/DHS. Адвокаты, правозащитные организации, диаспорные комьюнити — всем нужен канал связи без привязки к личности.
+
+**Что мы решаем:** Звонки без регистрации, без номера телефона, без метаданных. Open source — можно проверить что нет бэкдоров. E2EE. Будущий mesh — работает даже без интернета.
+
+**Боль:** Страх депортации + потребность в связи с семьёй и юристами.
 
 ## Positioning
 
-**One-liner:** Encrypted video calls that work everywhere — no account, no tracking, open source.
+**Universal:** "Encrypted calls that just work. No account. No tracking."
 
-**For Russia:** "Звонки, которые работают когда Telegram не работает."
+**Russia:** "Звонки, которые работают когда Telegram не работает."
 
-**For global:** "The open-source Zoom alternative that respects your privacy."
-
-**Category:** Privacy-first communication tool (Signal meets Zoom meets Briar).
-
-## Target Audiences
-
-| Audience | Pain point | Hook |
-|----------|-----------|------|
-| **Russian users** | Zoom/Meet/FaceTime blocked or unstable | "Works in Russia, invisible to DPI" |
-| **Privacy-conscious devs** | Zoom tracks everything, closed source | "Open source, self-hosted, no telemetry" |
-| **Self-hosters** | No good lightweight alternative to Jitsi (500MB+) | "30MB Docker image, single binary" |
-| **Activists / journalists** | Need censorship-resistant calls | "VLESS tunnel + offline mesh (roadmap)" |
-| **Small businesses (B2B)** | Intercom/Zendesk too expensive | → Conversion to OxPulse Business widget |
+**US Immigration:** "Calls without a phone number. No logs. No metadata."
 
 ## Brand Identity
 
 - **Name:** OxPulse Chat
 - **Domain:** oxpulse.chat
-- **Tone:** Technical, honest, no hype. "We don't track you. Here's the source code."
+- **Tone:** Simple, human, no tech jargon for end users. Technical depth for devs.
 - **Visual:** Dark theme, gold accent (#C9A96E), minimal
-- **Logo:** TBD (need design)
+- **Logo:** TBD
 
 ## Growth Strategy
 
-### Channel 1: Viral Loop (Zoom playbook)
+### Strategy 1: Russia — Word of Mouth + Telegram Channels
 
-Every call = brand exposure. The link `oxpulse.chat/ABCD-1234` introduces new users.
+The product solves a daily pain. People will share it naturally.
 
-**Actions:**
-- [ ] "Powered by OxPulse" subtle footer on call screen
-- [ ] OG meta tags with branded preview when sharing links
-- [ ] Room link format is memorable: `oxpulse.chat/BEAR-7042`
+**Distribution:**
+- [ ] Telegram channels about блокировках/VPN (antizapret, roskomsvoboda communities)
+- [ ] Telegram channels диаспоры (русские в Германии, Израиле, США, Грузии)
+- [ ] Мамские форумы и чаты (бабушка не может позвонить внукам — это боль)
+- [ ] Habr/vc.ru: технический разбор "как обойти ТСПУ для видеозвонков"
+- [ ] SEO (Yandex): "видеозвонки без VPN", "как позвонить за границу из России"
+- [ ] YouTube: короткое видео "как позвонить если заблокировали Telegram"
+
+**Key insight:** Не нужно объяснять что такое E2EE или VLESS. Нужно объяснить: "скинь ссылку маме — она нажмёт и вы поговорите".
+
+**Viral mechanic:** Человек в России скидывает ссылку родственнику за границей. Родственник тоже видит OxPulse. Теперь двое знают про продукт. Один из них скинет ещё кому-то.
+
+### Strategy 2: US Immigration — NGOs + Legal Aid Networks
+
+Иммигрантские комьюнити не сидят на HackerNews. Они в WhatsApp группах, в церквях, в юридических клиниках.
+
+**Distribution:**
+- [ ] Партнёрства с immigration legal aid organizations (RAICES, CLINIC, local legal aid)
+- [ ] Материалы для immigration lawyers: "recommend this to your clients"
+- [ ] Diaspora communities: Facebook groups, WhatsApp groups, community centers
+- [ ] Spanish-language landing page (Phase 2 — largest undocumented population)
+- [ ] Flyers/QR codes for physical distribution in legal clinics
+- [ ] Digital security training organizations (EFF, Access Now)
+
+**Key insight:** Доверие через организации, не через рекламу. Если адвокат говорит "используйте это" — люди используют.
+
+### Strategy 3: Open Source / Tech Community
+
+Secondary market but drives credibility and self-hosted adoption.
+
+**Distribution:**
+- [ ] HN: "Show HN" (focus on Rust + 500 LOC + anti-censorship angle)
+- [ ] Reddit: r/selfhosted, r/privacy, r/rust
+- [ ] awesome-selfhosted, awesome-rust PRs
+- [ ] Habr technical article (architecture deep dive)
+
+### Strategy 4: Viral Loop (Built into Product)
+
+Every call = brand exposure.
+
+- [ ] Link format: `oxpulse.chat/BEAR-7042` (memorable, shareable)
+- [ ] OG meta tags with branded preview image
 - [ ] After call ended → "Create your own room" CTA
+- [ ] "Powered by OxPulse" subtle footer
 
-**Metric:** % of call recipients who later create their own room.
-
-### Channel 2: Open Source Community
-
-GitHub is a distribution channel, not just a repo.
-
-**Actions:**
-- [ ] README with GIF demo (first impression = everything)
-- [ ] "Show HN" post on Hacker News (timing: weekday 9-11am PST)
-- [ ] r/selfhosted post ("30MB encrypted video calls, self-hosted")
-- [ ] r/privacy post ("open-source Zoom alternative with E2EE")
-- [ ] r/rust post ("500 LOC Rust signaling server, Axum + DashMap")
-- [ ] dev.to / Habr article: "Building a Zoom alternative in Rust"
-- [ ] Product Hunt launch (after Phase 2 with accounts)
-- [ ] awesome-selfhosted PR
-- [ ] awesome-rust PR
-
-**Metric:** GitHub stars, forks, Docker pulls.
-
-### Channel 3: Russia / Anti-Censorship Angle
-
-Unique positioning no competitor has.
-
-**Actions:**
-- [ ] Habr article: "Как мы сделали видеозвонки, невидимые для ТСПУ"
-- [ ] Russian tech Telegram channels (vc.ru, Habr, tproger)
-- [ ] IT communities: Хабр Q&A, Pikabu tech
-- [ ] Keywords: "видеозвонки без блокировок", "замена Zoom в России"
-- [ ] Blog post on VLESS/Reality architecture (technical credibility)
-
-**Metric:** Russian traffic share, Telegram channel subscribers.
-
-### Channel 4: Content / SEO
-
-Long-term organic traffic.
-
-**Topics:**
-- "Best open source video call tools 2026"
-- "How to self-host video calls"
-- "WebRTC Perfect Negotiation explained"
-- "TURN server setup guide (coturn)"
-- "How to bypass DPI for video calls"
-- "Rust for real-time applications"
-
-**Platform:** Blog on oxpulse.chat/blog (Phase 2+) or Medium/dev.to initially.
-
-### Channel 5: B2B Conversion Funnel
-
-Free calls → paid widget.
+### Strategy 5: B2B Conversion (Long-term)
 
 ```
-User discovers OxPulse via call link
-  → Creates account (Phase 2)
-  → Uses regularly for calls
-  → Has a business / website
-  → Sees "OxPulse Business" in settings or footer
-  → Tries embeddable widget (free tier?)
-  → Converts to paid plan
+Free calls → Daily usage → Account → Sees "OxPulse Business" → Widget trial → Paid
 ```
 
-**Actions:**
-- [ ] "OxPulse for Business" link in app footer
-- [ ] Landing page: oxpulse.chat/business (after Phase 2)
-- [ ] Case study: "How reklama.piter.now uses OxPulse widget"
+- [ ] "OxPulse for Business" link in footer (after Phase 2)
+- [ ] Case study with reklama.piter.now
 
 ## Launch Plan
 
 ### Week 1: Soft Launch (NOW)
 
 - [x] Deploy to oxpulse.chat
-- [x] GitHub repo public with README
-- [x] ROADMAP published
-- [ ] Buy oxpulse.chat domain — DONE
-- [ ] Share with 5-10 people for testing
-- [ ] Fix any UX issues found
+- [x] GitHub repo with README + ROADMAP
+- [x] Domain oxpulse.chat purchased, SSL active
+- [ ] Test with 5-10 people (cross-border calls Russia↔abroad)
+- [ ] Fix UX issues found in testing
+- [ ] Record GIF demo: create room → share link → call starts
 
-### Week 2: Community Launch
+### Week 2: Russia Launch
 
-- [ ] Record GIF demo (create room → call → screen share)
-- [ ] Update README with GIF
-- [ ] Post to Hacker News ("Show HN: OxPulse — open source encrypted video calls in 500 lines of Rust")
-- [ ] Post to r/selfhosted, r/privacy, r/rust
-- [ ] Habr article (Russian)
+- [ ] Post in Telegram channels диаспоры (русские за границей)
+- [ ] Post in anti-censorship communities
+- [ ] Habr article: "Видеозвонки, невидимые для ТСПУ — как мы это сделали"
+- [ ] Short video for YouTube/Telegram: "Как позвонить из России за границу"
+- [ ] Ask 5 people to try calling their relatives and give feedback
 
-### Week 3-4: Iterate
+### Week 3-4: Tech Community
 
-- [ ] Respond to GitHub issues / feedback
-- [ ] Fix top-reported bugs
-- [ ] Start Phase 2 (accounts) based on feedback
+- [ ] Show HN post
+- [ ] r/selfhosted, r/privacy, r/rust
 - [ ] awesome-selfhosted PR
+- [ ] Respond to GitHub issues
 
-### Month 2: Product Hunt + Phase 2
+### Month 2: Phase 2 + Immigration Market
 
-- [ ] Phase 2 shipped (accounts, contacts, personal rooms)
+- [ ] Phase 2 shipped (accounts, personal rooms)
+- [ ] Contact 3 immigration legal aid organizations
+- [ ] Spanish-language basics on landing page
 - [ ] Product Hunt launch
-- [ ] dev.to article series
-- [ ] Twitter @oxpulse active (technical content, updates)
+- [ ] @oxpulse Twitter active
 
-### Month 3: Growth
+### Month 3: Scale
 
-- [ ] Target: 1K GitHub stars
-- [ ] Target: 100 DAU (daily active users)
-- [ ] Target: 10 self-hosted deployments
 - [ ] Phase 3 (encrypted chat) in progress
+- [ ] First partnerships with NGOs
+- [ ] Content: blog posts, technical articles
 - [ ] First B2B conversion attempts
-
-## Messaging by Audience
-
-### For Hacker News
-
-> **Show HN: OxPulse — Open source encrypted video calls in 500 lines of Rust**
->
-> I built a lightweight alternative to Zoom/Jitsi. 30MB Docker image, zero JS dependencies for WebRTC, AGPL-3.0. Works in Russia through VLESS/Reality tunnel (invisible to DPI). No account required — create a room, share the link, start talking.
->
-> Stack: Rust (Axum), SvelteKit 5, coturn for TURN relay.
->
-> Roadmap: encrypted chat (Double Ratchet), offline P2P via Bluetooth, mesh networking.
-
-### For r/selfhosted
-
-> **OxPulse Chat — self-hosted encrypted video calls (30MB, single binary)**
->
-> docker run -p 3000:3000 oxpulse-chat
->
-> That's it. No database, no Redis, no complex setup. 1-on-1 video calls with E2EE verification. Open source (AGPL-3.0).
-
-### For Russian audience (Habr)
-
-> **OxPulse — видеозвонки, которые работают в России**
->
-> Open-source альтернатива Zoom на Rust. 30 МБ Docker-образ. Работает через VLESS/Reality — невидим для ТСПУ. Без регистрации — создай комнату, скинь ссылку, звони.
 
 ## KPIs
 
 | Metric | Month 1 | Month 3 | Month 6 |
 |--------|---------|---------|---------|
-| GitHub stars | 200 | 1,000 | 3,000 |
-| Daily active calls | 10 | 100 | 500 |
-| Registered users | — | 500 | 5,000 |
-| Self-hosted instances | 5 | 20 | 100 |
-| B2B widget trials | — | — | 10 |
+| Daily active calls | 20 | 200 | 1,000 |
+| Unique users (weekly) | 50 | 500 | 5,000 |
+| GitHub stars | 100 | 1,000 | 3,000 |
+| Russia→abroad calls | 10 | 100 | 500 |
+| Self-hosted instances | 3 | 15 | 50 |
+| NGO partnerships | 0 | 2 | 5 |
 
 ## Budget
 
-**$0.** Everything is organic: open source, content, community. No paid ads until product-market fit is proven.
+**$0.** Organic only. No paid ads until product-market fit proven.
 
-Infrastructure costs: $0 extra (runs on existing krolik-server + Hostiman).
+Infrastructure: $0 extra (existing krolik-server + Hostiman).
+Domain: ~$10/year (oxpulse.chat).
+
+## Key Risks
+
+| Risk | Mitigation |
+|------|-----------|
+| RKN blocks VLESS/Reality | Fallback protocols (WebSocket, gRPC), domain fronting |
+| Low adoption (no network effect yet) | Focus on cross-border use case (caller sends link to recipient) |
+| Competitors copy the idea | Speed + open source community + mesh (hard to replicate) |
+| Legal pressure in Russia | Server outside Russia, no Russian entity, AGPL protects code |
+| Immigration market is hard to reach digitally | Partner with NGOs who have direct access |
