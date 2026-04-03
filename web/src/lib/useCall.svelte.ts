@@ -65,21 +65,44 @@ export function useCall(opts: UseCallOptions) {
 		}
 	}
 
+	// ── Device selection: prefer local mic over iPhone Continuity ──
+
+	async function preferLocalAudio(): Promise<MediaTrackConstraints> {
+		const base: MediaTrackConstraints = {
+			echoCancellation: true, noiseSuppression: true,
+			autoGainControl: true, sampleRate: 48000, channelCount: 1,
+		};
+		try {
+			const devices = await navigator.mediaDevices.enumerateDevices();
+			const mics = devices.filter(d => d.kind === 'audioinput');
+			const iphone = /iphone|ipad/i;
+			const hasLocal = mics.some(d => !iphone.test(d.label));
+			const hasIphone = mics.some(d => iphone.test(d.label));
+			if (hasLocal && hasIphone) {
+				const local = mics.find(d => !iphone.test(d.label) && d.deviceId !== 'default');
+				if (local) return { ...base, deviceId: { exact: local.deviceId } };
+			}
+		} catch { /* enumerateDevices not available before permission */ }
+		return base;
+	}
+
 	// ── Init: media + signaling + WebRTC ────────────────────────
 
 	async function init() {
 		// Unlock AudioContext on iOS (init is triggered by user gesture)
 		unlockAudio();
 
+		const audioConstraints = await preferLocalAudio();
+
 		try {
 			localStream = await navigator.mediaDevices.getUserMedia({
-				audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000, channelCount: 1 },
+				audio: audioConstraints,
 				video: { width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 }, frameRate: { ideal: 30 } },
 			});
 		} catch {
 			try {
 				localStream = await navigator.mediaDevices.getUserMedia({
-					audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000, channelCount: 1 },
+					audio: audioConstraints,
 				});
 				videoEnabled = false;
 			} catch {
@@ -274,7 +297,7 @@ export function useCall(opts: UseCallOptions) {
 		try {
 			const constraints: MediaStreamConstraints = {};
 			if (audioDead) {
-				constraints.audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000, channelCount: 1 };
+				constraints.audio = await preferLocalAudio();
 			}
 			if (videoDead) {
 				constraints.video = {
