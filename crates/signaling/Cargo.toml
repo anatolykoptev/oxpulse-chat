@@ -1,0 +1,15 @@
+[package]
+name = "oxpulse-signaling"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "WebRTC signaling relay for OxPulse"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+dashmap = "6"
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "time", "sync", "macros"] }
+tracing = "0.1"
