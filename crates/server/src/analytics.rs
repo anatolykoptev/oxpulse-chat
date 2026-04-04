@@ -24,10 +24,7 @@ pub struct Event {
     pub data: serde_json::Value,
 }
 
-pub async fn ingest(
-    State(state): State<AppState>,
-    Json(batch): Json<EventBatch>,
-) -> StatusCode {
+pub async fn ingest(State(state): State<AppState>, Json(batch): Json<EventBatch>) -> StatusCode {
     let pool = match &state.pool {
         Some(p) => p,
         None => return StatusCode::NO_CONTENT,

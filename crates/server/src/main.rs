@@ -73,10 +73,7 @@ fn build_cors(origins: &[String]) -> CorsLayer {
             .allow_methods(Any)
             .allow_headers(Any);
     }
-    let origins: Vec<_> = origins
-        .iter()
-        .filter_map(|o| o.parse().ok())
-        .collect();
+    let origins: Vec<_> = origins.iter().filter_map(|o| o.parse().ok()).collect();
     CorsLayer::new()
         .allow_origin(origins)
         .allow_methods(Any)

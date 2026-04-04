@@ -58,8 +58,7 @@ async fn test_signal_relay() {
         let msg = tokio::time::timeout(Duration::from_secs(2), rx_b.next()).await;
         match msg {
             Ok(Some(Ok(m))) => {
-                let val: serde_json::Value =
-                    serde_json::from_str(m.to_text().unwrap()).unwrap();
+                let val: serde_json::Value = serde_json::from_str(m.to_text().unwrap()).unwrap();
                 if val["type"] == "signal" {
                     assert_eq!(val["payload"]["sdp"], "test-offer");
                     got_signal = true;
@@ -120,9 +119,7 @@ async fn test_peer_left_notification() {
         let msg = tokio::time::timeout(Duration::from_secs(2), rx_b.next()).await;
         match msg {
             Ok(Some(Ok(m))) => {
-                if let Ok(val) =
-                    serde_json::from_str::<serde_json::Value>(m.to_text().unwrap())
-                {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(m.to_text().unwrap()) {
                     if val["type"] == "peer_left" {
                         got_left = true;
                         break;

@@ -24,19 +24,21 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
     let fonts_dir = ServeDir::new(format!("{room_assets_dir}/fonts"));
     let static_dir = ServeDir::new(room_assets_dir);
 
-    let immutable = Router::new()
-        .fallback_service(immutable_dir)
-        .layer(SetResponseHeaderLayer::overriding(
-            CACHE_CONTROL,
-            HeaderValue::from_static("public, max-age=31536000, immutable"),
-        ));
+    let immutable =
+        Router::new()
+            .fallback_service(immutable_dir)
+            .layer(SetResponseHeaderLayer::overriding(
+                CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=31536000, immutable"),
+            ));
 
-    let fonts = Router::new()
-        .fallback_service(fonts_dir)
-        .layer(SetResponseHeaderLayer::overriding(
-            CACHE_CONTROL,
-            HeaderValue::from_static("public, max-age=31536000, immutable"),
-        ));
+    let fonts =
+        Router::new()
+            .fallback_service(fonts_dir)
+            .layer(SetResponseHeaderLayer::overriding(
+                CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=31536000, immutable"),
+            ));
 
     Router::new()
         .route("/ws/call/{room_id}", get(ws_call))

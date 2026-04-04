@@ -82,9 +82,7 @@ async fn handle_call_ws(socket: WebSocket, room_id: String, rooms: Rooms) {
     if polite {
         rooms.mark_connected(&room_id);
         let peer_joined = serde_json::to_string(&ServerMsg::PeerJoined)
-            .unwrap_or_else(|_| {
-                r#"{"type":"error","message":"serialization failed"}"#.to_string()
-            });
+            .unwrap_or_else(|_| r#"{"type":"error","message":"serialization failed"}"#.to_string());
         let _ = tx.send(TaggedSignal {
             from: peer_id,
             payload: peer_joined,
@@ -138,8 +136,8 @@ async fn process_messages(
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown");
                 tracing::info!(room_id = %room_id, peer_id, sig_type, "signal_relay");
-                let out = serde_json::to_string(&ServerMsg::Signal { payload })
-                    .unwrap_or_else(|_| {
+                let out =
+                    serde_json::to_string(&ServerMsg::Signal { payload }).unwrap_or_else(|_| {
                         r#"{"type":"error","message":"serialization failed"}"#.to_string()
                     });
                 let _ = tx.send(TaggedSignal {
@@ -175,7 +173,10 @@ async fn wait_for_join(stream: &mut futures_util::stream::SplitStream<WebSocket>
                 Message::Close(_) => return false,
                 _ => continue,
             };
-            return matches!(serde_json::from_str::<ClientMsg>(&text), Ok(ClientMsg::Join));
+            return matches!(
+                serde_json::from_str::<ClientMsg>(&text),
+                Ok(ClientMsg::Join)
+            );
         }
         false
     })
