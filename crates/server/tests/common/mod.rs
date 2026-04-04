@@ -32,6 +32,7 @@ impl TestApp {
             turn_secret: "test-secret".into(),
             turn_urls: vec!["turn:test:3478".into()],
             stun_urls: vec!["stun:stun.l.google.com:19302".into()],
+            pool: None,
         };
 
         let router = oxpulse_chat::router::build_router(state, "/nonexistent");
