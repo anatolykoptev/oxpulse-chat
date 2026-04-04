@@ -34,6 +34,12 @@ pub struct Rooms {
     pub(crate) inner: Arc<DashMap<String, Arc<Room>>>,
 }
 
+impl Default for Rooms {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rooms {
     pub fn new() -> Self {
         Self {
