@@ -8,7 +8,7 @@
 
 <footer class="footer">
   <span class="footer-copy">&copy; 2026 OxPulse</span>
-  <p class="oss">Open Source · <a href="https://github.com/oxpulse-hq/oxpulse-chat" target="_blank" rel="noopener">GitHub</a></p>
+  <p class="oss">Open Source · <a href="https://github.com/anatolykoptev/oxpulse-chat" target="_blank" rel="noopener">GitHub</a></p>
   <nav class="footer-links desktop-only">
     <a href="/privacy">{t.footerPrivacy}</a>
     <a href="/terms">{t.footerTerms}</a>
