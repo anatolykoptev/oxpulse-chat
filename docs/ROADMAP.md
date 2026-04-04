@@ -60,6 +60,16 @@ Open-source encrypted messenger with video calls. Works in Russia, offline, and 
 - [x] 3 unit tests (TURN credential generation)
 - [x] 7 integration tests (join, polite/impolite, signal relay, room full, peer left, TURN, health)
 
+### Analytics (Privacy-Preserving)
+- [x] Anonymous device_id (random UUID in localStorage, no fingerprinting)
+- [x] 5 event types: page_view, room_created, room_joined, call_connected, call_ended
+- [x] Batch transport (sendBeacon, max 20 events/req)
+- [x] PostgreSQL storage (optional — app works without DB)
+- [x] Admin dashboard (Go + HTMX, dark theme, Chart.js)
+- [x] Viral funnel: page_view → room_created → call_connected → repeat creators
+- [x] Call analytics: daily calls, duration, unique devices
+- [x] Device activity: top devices by rooms/calls (truncated IDs, no PII)
+
 ---
 
 ## Phase 2: Accounts & Contacts (v0.2.0)

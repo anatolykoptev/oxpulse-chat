@@ -70,6 +70,20 @@
 
 Если этот процент > 0 — продукт работает. Всё остальное — следствие.
 
+## Что считаем (анонимно)
+
+| Метрика | Как | Зачем |
+|---------|-----|-------|
+| Viral coefficient | Devices с 2+ room_created | Продукт растёт сам? |
+| Daily active calls | call_connected за день | Продукт используют? |
+| Avg call duration | call_ended.duration_secs | Качество звонков |
+| Unique devices | Distinct device_id | Сколько людей |
+| Funnel | page_view → room → call → repeat | Где теряем |
+
+**Не собираем:** IP, email, телефон, browser fingerprint, геолокацию, содержание звонков.
+
+**Dashboard:** https://oxpulse.chat/admin/ (Go + HTMX + Chart.js)
+
 ## Риски
 
 | Риск | Что делаем |
