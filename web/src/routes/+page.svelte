@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
+  import { track } from '$lib/tracker';
   import LangSwitcher from '$lib/LangSwitcher.svelte';
   import { generateRoomCode, isValidRoomId } from '$lib/roomcode';
   import BackgroundLayer from '$lib/BackgroundLayer.svelte';
@@ -21,11 +22,13 @@
 
   $effect(() => {
     mounted = true;
+    track('page_view', undefined, { referrer: document.referrer || '' });
     return () => { mounted = false; };
   });
 
   function createRoom() {
     const roomId = generateRoomCode();
+    track('room_created', roomId);
     goto(`/${roomId}`, { replaceState: true });
   }
 

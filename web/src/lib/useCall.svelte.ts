@@ -1,4 +1,5 @@
 import { CallSignaling, fetchTurnCredentials, type SignalMessage } from './signaling';
+import { track } from './tracker';
 import { createCall, qualityLevel, type CallHandle, type QualityStats, type QualityLevel } from './webrtc';
 import { playConnectSound, playDisconnectSound, startRinging, stopRinging, unlockAudio } from './sounds';
 
@@ -117,6 +118,7 @@ export function useCall(opts: UseCallOptions) {
 		} catch { /* ignore */ }
 
 		status = 'waiting';
+		track('room_joined', opts.roomId, { via: document.referrer ? 'link' : 'direct' });
 		startRinging();
 
 		signaling = new CallSignaling({
@@ -129,6 +131,7 @@ export function useCall(opts: UseCallOptions) {
 					onConnectionState(state: RTCPeerConnectionState) {
 						if (state === 'connected') {
 							status = 'connected';
+							track('call_connected', opts.roomId, { audio_only: !videoEnabled });
 							stopRinging();
 							playConnectSound();
 							call?.startStatsPolling();
@@ -278,6 +281,7 @@ export function useCall(opts: UseCallOptions) {
 			localStream = null;
 		}
 		remoteStream = null;
+		if (elapsed > 0) track('call_ended', opts.roomId, { duration_secs: elapsed });
 		status = 'ended';
 		opts.onEnded();
 	}
