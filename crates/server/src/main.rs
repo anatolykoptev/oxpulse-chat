@@ -22,11 +22,25 @@ async fn main() {
     let rooms = oxpulse_signaling::Rooms::new();
     rooms.start_cleanup_task();
 
+    let pool = if let Some(ref db_url) = config.database_url {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(3)
+            .connect(db_url)
+            .await
+            .expect("failed to connect to database");
+        oxpulse_chat::migrate::run(&pool).await;
+        Some(pool)
+    } else {
+        tracing::warn!("DATABASE_URL not set — analytics disabled");
+        None
+    };
+
     let state = AppState {
         rooms,
         turn_secret: config.turn_secret,
         turn_urls: config.turn_urls,
         stun_urls: config.stun_urls,
+        pool,
     };
 
     let cors = build_cors(&config.cors_origins);

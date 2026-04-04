@@ -16,6 +16,7 @@ pub struct AppState {
     pub turn_secret: String,
     pub turn_urls: Vec<String>,
     pub stun_urls: Vec<String>,
+    pub pool: Option<sqlx::PgPool>,
 }
 
 pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
@@ -40,6 +41,7 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
     Router::new()
         .route("/ws/call/{room_id}", get(ws_call))
         .route("/api/turn-credentials", post(turn_credentials))
+        .route("/api/event", post(crate::analytics::ingest))
         .route("/api/health", get(health))
         .nest("/_app/immutable", immutable)
         .nest("/fonts", fonts)

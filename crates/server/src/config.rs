@@ -6,6 +6,7 @@ pub struct Config {
     pub stun_urls: Vec<String>,
     pub cors_origins: Vec<String>,
     pub room_assets_dir: String,
+    pub database_url: Option<String>,
 }
 
 impl Config {
@@ -18,6 +19,7 @@ impl Config {
             stun_urls: csv_or("STUN_URLS", "stun:stun.l.google.com:19302"),
             cors_origins: csv_or("CORS_ORIGINS", "*"),
             room_assets_dir: env("ROOM_ASSETS_DIR", "/app/room"),
+            database_url: std::env::var("DATABASE_URL").ok().filter(|s| !s.is_empty()),
         }
     }
 }
