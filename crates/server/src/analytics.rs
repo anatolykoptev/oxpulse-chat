@@ -9,6 +9,8 @@ use crate::router::AppState;
 pub struct EventBatch {
     #[serde(rename = "did")]
     pub device_id: String,
+    #[serde(rename = "src", default)]
+    pub source: String,
     pub events: Vec<Event>,
 }
 
@@ -41,14 +43,14 @@ pub async fn ingest(
     for event in &batch.events {
         let id = uuid::Uuid::new_v4();
         let _ = sqlx::query(
-            "INSERT INTO call_events (id, device_id, event_type, room_id, data, created_at) \
-             VALUES ($1, $2, $3, $4, $5, now())",
+            "INSERT INTO call_events (id, device_id, event_type, room_id, source, data, created_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, now())",
         )
         .bind(id)
         .bind(&batch.device_id)
         .bind(&event.event_type)
         .bind(&event.room_id)
-        .bind(&event.data)
+        .bind(&batch.source)
         .execute(pool)
         .await;
     }

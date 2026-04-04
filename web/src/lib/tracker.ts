@@ -23,7 +23,7 @@ export function track(
 function flush() {
   timer = null;
   if (queue.length === 0) return;
-  const payload = JSON.stringify({ did: getDeviceId(), events: queue });
+  const payload = JSON.stringify({ did: getDeviceId(), src: location.hostname, events: queue });
   queue = [];
   if (navigator.sendBeacon) {
     navigator.sendBeacon(
