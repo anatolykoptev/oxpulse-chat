@@ -96,9 +96,13 @@ async fn analytics_insert_persists_all_fields() {
         .expect("truncate call_events");
 
     let dir = tempdir().unwrap();
+    // Must match the body in `spa_fallback_and_static_files` — the router
+    // caches `index.html` in a `OnceLock<String>`, so whichever test runs
+    // first wins the cache. Keeping the content identical removes any
+    // latent ordering dependency if SPA assertions tighten later.
     fs::write(
         dir.path().join("index.html"),
-        "<html><head><title>OxPulse Analytics Test</title></head></html>",
+        "<html><head><title>OxPulse</title></head></html>",
     )
     .unwrap();
 
