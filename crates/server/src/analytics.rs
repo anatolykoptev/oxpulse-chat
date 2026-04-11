@@ -39,7 +39,7 @@ pub async fn ingest(State(state): State<AppState>, Json(batch): Json<EventBatch>
 
     for event in &batch.events {
         let id = uuid::Uuid::new_v4();
-        let _ = sqlx::query(
+        let res = sqlx::query(
             "INSERT INTO call_events (id, device_id, event_type, room_id, source, data, created_at) \
              VALUES ($1, $2, $3, $4, $5, $6, now())",
         )
@@ -48,8 +48,12 @@ pub async fn ingest(State(state): State<AppState>, Json(batch): Json<EventBatch>
         .bind(&event.event_type)
         .bind(&event.room_id)
         .bind(&batch.source)
+        .bind(&event.data)
         .execute(pool)
         .await;
+        if let Err(e) = res {
+            tracing::warn!(error = %e, event_type = %event.event_type, "analytics_insert_failed");
+        }
     }
 
     StatusCode::NO_CONTENT
