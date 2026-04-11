@@ -1,0 +1,228 @@
+service: oxpulse-chat
+version: 1
+owner: "@anatoly"
+last_updated: 2026-04-10
+documentation: docs/slo/error-budget-policy.md
+
+# ---------------------------------------------------------------------------
+# SLI / SLO definitions for oxpulse-chat (Google SRE style).
+#
+# Metric names below assume the Prometheus metrics introduced in Task 3.1 /
+# 3.2 of docs/superpowers/plans/2026-04-10-oxpulse-chat-partner-launch.md.
+#
+# NEW METRICS REQUIRED (flag for Task 3.2 — not in the current plan):
+#   1. ws_join_total{result="ok"|"err"}              counter
+#      needed for: call_join_success SLI
+#      placement:  crates/signaling/src/handler.rs — increment "ok" right
+#                  after successfully sending ServerMsg::Joined, "err" on
+#                  every other terminal path in handle_call_ws (join
+#                  timeout, room full, sink.send failure before Joined).
+#
+#   2. turn_cred_latency_seconds (Histogram)          histogram
+#      needed for: turn_cred_latency SLI
+#      placement:  crates/server/src/router.rs around the
+#                  /api/turn-credentials handler; use default or custom
+#                  buckets tuned for a <150ms target
+#                  (e.g. .005 .01 .025 .05 .1 .15 .25 .5 1 2).
+#
+#   3. ws_handshake_failed_total                      counter
+#      needed for: signaling_ws_availability SLI
+#      placement:  crates/signaling/src/handler.rs — increment in
+#                  wait_for_join() failure paths and on the "Room is full"
+#                  / sink.send pre-Joined failure branches. Distinct from
+#                  ws_join_total because handshake failures cover the
+#                  transport / protocol layer, not the room-join semantics.
+#
+# Until Task 3.2 ships those metrics, the corresponding SLOs are
+# UNMEASURABLE and the alerts must be created as "absent() => warn" stubs
+# so we do not silently lose coverage.
+# ---------------------------------------------------------------------------
+
+slos:
+  - name: call_join_success
+    description: >
+      Fraction of WebRTC room join attempts where the client sends
+      ClientMsg::Join over WS and receives ServerMsg::Joined{polite}
+      without the WS closing with an error.
+    sli:
+      type: ratio
+      definition: |
+        sum(rate(ws_join_total{result="ok"}[5m]))
+          /
+        sum(rate(ws_join_total[5m]))
+      status: UNMEASURABLE_UNTIL_TASK_3_2
+      required_metric: ws_join_total{result="ok"|"err"}
+      notes: |
+        Mirrors the join flow in crates/signaling/src/handler.rs:
+        handle_call_ws -> wait_for_join -> rooms.join -> send(Joined).
+        Any failure on that path counts as result="err".
+    slo:
+      target: 0.99         # 99.0% — conservative launch target, bump to 99.5 after 90d
+      window: 28d
+    error_budget:
+      window: 28d
+      # 1 - 0.99 = 0.01 error budget
+      # 28d * 24h * 60m = 40320 minutes
+      # budget = 40320 * 0.01 = 403.2 minutes (~6h 43m) of failed joins / 28d
+      computed: "403.2 minutes of allowed failed joins per 28d (1% of 28d)"
+    burn_rate_alerts:
+      - severity: page
+        long_window: 1h
+        short_window: 5m
+        burn_rate_threshold: 14.4
+        description: "fast burn — will exhaust 28d budget in hours"
+      - severity: ticket
+        long_window: 6h
+        short_window: 30m
+        burn_rate_threshold: 6
+        description: "slow burn — will exhaust 28d budget in days"
+    runbook: docs/runbooks/signaling-join-failures.md
+
+  - name: turn_cred_latency
+    description: >
+      p99 latency of the /api/turn-credentials endpoint. This is on the
+      critical path of every call setup — if it is slow, users see long
+      pre-join spinners and abandon calls.
+    sli:
+      type: latency
+      definition: |
+        histogram_quantile(
+          0.99,
+          sum(rate(turn_cred_latency_seconds_bucket[5m])) by (le)
+        )
+      status: UNMEASURABLE_UNTIL_TASK_3_2
+      required_metric: turn_cred_latency_seconds (Histogram)
+      notes: |
+        Task 3.2 plans turn_creds_issued_total (counter) but NOT a
+        latency histogram. Add turn_cred_latency_seconds_bucket in the
+        same change so this SLI becomes measurable on day one.
+    slo:
+      target_ms: 150       # p99 < 150ms
+      target_quantile: 0.99
+      window: 7d           # short window — latency fluctuates and we want fast detection
+    error_budget:
+      window: 28d
+      # For latency SLOs, the "budget" is the fraction of requests that
+      # may exceed the target. We treat "exceeds p99<150ms" as a bad event
+      # and reuse the 99% success interpretation over 28d.
+      computed: "at most 1% of turn-credentials requests may exceed 150ms over 28d"
+    burn_rate_alerts:
+      - severity: page
+        long_window: 1h
+        short_window: 5m
+        burn_rate_threshold: 14.4
+        description: "fast burn — p99 latency blowing past 150ms budget in hours"
+      - severity: ticket
+        long_window: 6h
+        short_window: 30m
+        burn_rate_threshold: 6
+        description: "slow burn — p99 latency drifting past budget over days"
+    runbook: docs/runbooks/turn-outage.md
+
+  - name: analytics_durability
+    description: >
+      Fraction of analytics events ingested via /api/event that are
+      successfully written to Postgres. This is the SLI that would have
+      caught the 7-day silent-drop regression on day one.
+    sli:
+      type: ratio
+      definition: |
+        sum(rate(analytics_events_total{result="ok"}[5m]))
+          /
+        sum(rate(analytics_events_total[5m]))
+      status: MEASURABLE_AFTER_TASK_3_2
+      required_metric: analytics_events_total{result="ok"|"err"}
+      notes: |
+        Shape matches the increment in Task 3.2 Step 6 and the existing
+        insert loop in crates/server/src/analytics.rs (each row counted
+        individually as ok/err). Ratio is undefined when the denominator
+        is zero — the absent()/vector(0) guard in Dozor alert rules must
+        treat "no traffic" as a separate warn, not a page.
+    slo:
+      target: 0.999        # 99.9%
+      window: 28d
+    error_budget:
+      window: 28d
+      # 1 - 0.999 = 0.001 error budget
+      # 40320 minutes * 0.001 = 40.32 minutes worth of failed events / 28d
+      computed: "40.32 minutes of allowed failed events per 28d (0.1% of 28d)"
+    burn_rate_alerts:
+      - severity: page
+        long_window: 1h
+        short_window: 5m
+        burn_rate_threshold: 14.4
+        description: "fast burn — analytics pipeline dropping events, budget gone in hours"
+      - severity: ticket
+        long_window: 6h
+        short_window: 30m
+        burn_rate_threshold: 6
+        description: "slow burn — sustained analytics error ratio, budget gone in days"
+    runbook: docs/runbooks/analytics-db-down.md
+
+  - name: signaling_ws_availability
+    description: >
+      Fraction of WS handshakes that succeed. Measures the transport /
+      upgrade layer, distinct from call_join_success which measures the
+      room-join semantics on top of a working WS.
+    sli:
+      type: availability
+      definition: |
+        1 - (
+          sum(rate(ws_handshake_failed_total[5m]))
+            /
+          sum(rate(ws_connects_total[5m]))
+        )
+      status: UNMEASURABLE_UNTIL_TASK_3_2
+      required_metric: ws_handshake_failed_total (new counter)
+      notes: |
+        Task 3.2 plans ws_connects_total and ws_disconnects_total but
+        NOT ws_handshake_failed_total. Add the new counter alongside the
+        existing two so the SLI has a proper numerator. Suggested
+        increment sites in crates/signaling/src/handler.rs:
+          - wait_for_join() returns false (timeout or close before join)
+          - rooms.join returns None ("Room is full")
+          - sink.send of ServerMsg::Joined errors out
+        These are the same paths where ws_join_total{result="err"} fires,
+        but counted against ws_connects_total (the total handshakes)
+        instead of ws_join_total (the total join attempts), so the two
+        SLIs stay independent.
+    slo:
+      target: 0.9995       # 99.95%
+      window: 28d
+    error_budget:
+      window: 28d
+      # 1 - 0.9995 = 0.0005 error budget
+      # 40320 minutes * 0.0005 = 20.16 minutes / 28d
+      computed: "20.16 minutes of allowed handshake failures per 28d (0.05% of 28d)"
+    burn_rate_alerts:
+      - severity: page
+        long_window: 1h
+        short_window: 5m
+        burn_rate_threshold: 14.4
+        description: "fast burn — WS handshakes failing, budget gone in hours"
+      - severity: ticket
+        long_window: 6h
+        short_window: 30m
+        burn_rate_threshold: 6
+        description: "slow burn — elevated handshake failures, budget gone in days"
+    runbook: docs/runbooks/signaling-ws-outage.md
+
+notes: |
+  This file is the source of truth for SLOs. Dozor alert rules read
+  from this file (post-Task-3.3) or from a generated Prometheus rules
+  YAML derived from it.
+
+  Any change to a target value MUST include: (1) justification in PR
+  description, (2) 30 days of historical data showing current performance,
+  (3) approval from on-call rotation lead.
+
+  Targets are deliberately conservative for a new service. Bump up
+  after 90 days of clean operation.
+
+  New metrics required from Task 3.2 before these SLOs are fully
+  measurable:
+    - ws_join_total{result="ok"|"err"}       (call_join_success)
+    - turn_cred_latency_seconds (Histogram)  (turn_cred_latency)
+    - ws_handshake_failed_total              (signaling_ws_availability)
+  analytics_durability is already covered by the planned
+  analytics_events_total{result} counter.
