@@ -12,7 +12,7 @@
   import Toast from '$lib/Toast.svelte';
   import { t } from '$lib/i18n';
 
-  const roomId = $derived(page.params.roomId);
+  const roomId = $derived(page.params.roomId as string);
   const serverUrl = $derived(typeof window !== 'undefined' ? window.location.origin : '');
   const referrerUrl = $derived(typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('ref') || ''
