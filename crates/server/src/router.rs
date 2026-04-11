@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{Path, State};
-use axum::http::header::{CACHE_CONTROL, CONTENT_SECURITY_POLICY, X_FRAME_OPTIONS};
-use axum::http::{HeaderValue, StatusCode};
+use axum::http::header::{CACHE_CONTROL, CONTENT_SECURITY_POLICY, CONTENT_TYPE, X_FRAME_OPTIONS};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -19,10 +19,23 @@ pub struct AppState {
     pub pool: Option<sqlx::PgPool>,
 }
 
+static SPA_INDEX: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
 pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
     let immutable_dir = ServeDir::new(format!("{room_assets_dir}/_app/immutable"));
     let fonts_dir = ServeDir::new(format!("{room_assets_dir}/fonts"));
-    let static_dir = ServeDir::new(room_assets_dir);
+    // SPA fallback: unknown paths (e.g. /{roomId}) must serve index.html with
+    // status 200 so the SvelteKit client router can take over AND link
+    // previewers (Telegram/iMessage) see a valid HTML page with OG tags.
+    // tower-http's ServeDir::not_found_service preserves 404 even when the
+    // fallback resolves, so we use an axum handler via ServeDir::fallback
+    // which does honor the handler's status code.
+    let index_html_path = format!("{room_assets_dir}/index.html");
+    let body = std::fs::read_to_string(&index_html_path)
+        .unwrap_or_else(|e| panic!("failed to read {index_html_path}: {e}"));
+    SPA_INDEX.set(body).ok();
+    let static_dir = ServeDir::new(room_assets_dir)
+        .fallback(axum::handler::HandlerWithoutStateExt::into_service(spa_fallback));
 
     let immutable =
         Router::new()
@@ -57,6 +70,16 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
             HeaderValue::from_static("frame-ancestors 'none'"),
         ))
         .with_state(state)
+}
+
+async fn spa_fallback() -> impl IntoResponse {
+    let body = SPA_INDEX
+        .get()
+        .cloned()
+        .unwrap_or_else(|| "<!doctype html><html><body>OxPulse</body></html>".to_string());
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+    (StatusCode::OK, headers, body)
 }
 
 async fn ws_call(
