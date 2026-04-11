@@ -429,7 +429,7 @@ export function useCall(opts: UseCallOptions) {
 
 	const isLocalPip = $derived(status === 'connected' && !!remoteStream);
 	const isMobile = $derived(typeof window !== 'undefined' && 'ontouchstart' in window);
-	const timerStr = $derived(() => {
+	const timerStr = $derived.by(() => {
 		const m = Math.floor(elapsed / 60);
 		const s = (elapsed % 60).toString().padStart(2, '0');
 		return `${m}:${s}`;
