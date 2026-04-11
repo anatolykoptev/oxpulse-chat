@@ -1398,6 +1398,7 @@ dependencies = [
  "axum",
  "axum-test",
  "futures-util",
+ "getrandom 0.2.17",
  "oxpulse-signaling",
  "oxpulse-turn",
  "reqwest",
