@@ -119,7 +119,7 @@
 
 {#if call.status === 'ended'}
   <EndedOverlay
-    timerStr={call.timerStr()}
+    timerStr={call.timerStr}
     elapsed={call.elapsed}
     t={$t}
     onNewCall={newCall}
@@ -144,7 +144,7 @@
     <div class="hud" class:hud-hidden={call.status === 'connected' && !call.controlsVisible}>
       {#if call.status === 'connected'}
         <StatusPill
-          timerStr={call.timerStr()}
+          timerStr={call.timerStr}
           quality={call.quality}
           verificationEmoji={call.verificationEmoji}
           t={$t}
