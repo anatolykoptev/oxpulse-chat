@@ -15,6 +15,7 @@ use oxpulse_signaling::Rooms;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Row;
 use std::fs;
+use std::time::Duration;
 use tempfile::tempdir;
 
 fn test_state() -> AppState {
@@ -166,4 +167,72 @@ async fn analytics_insert_persists_all_fields() {
     assert_eq!(room1, Some("TEST-0001".to_string()));
     let src1: String = rows[1].try_get("source").unwrap();
     assert_eq!(src1, "oxpulse.chat");
+}
+
+/// Live end-to-end regression test for the room-link preview bug.
+///
+/// For 7 days `https://oxpulse.chat/{roomId}` returned `404` with no
+/// content-type, so Telegram/iMessage link previewers rendered the URL as
+/// a "file" instead of a rich card. Commit a0f4a4a made unknown paths
+/// fall back to `200 text/html` serving the SvelteKit `index.html`, which
+/// ships with full Open Graph meta tags.
+///
+/// This test hits the LIVE production URL (not a mock router) to assert
+/// the fix is actually deployed on the real stack, not just green in unit
+/// tests. Gated on `E2E_BASE_URL` so CI environments without outbound
+/// network simply skip.
+#[tokio::test]
+async fn room_link_preview_returns_html_not_404() {
+    let base_url = match std::env::var("E2E_BASE_URL") {
+        Ok(v) if !v.is_empty() => v,
+        _ => {
+            eprintln!("skipping room_link_preview_returns_html_not_404: E2E_BASE_URL not set");
+            return;
+        }
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .expect("build reqwest client");
+
+    let url = format!("{}/TQFA-9412", base_url.trim_end_matches('/'));
+    let res = client
+        .get(&url)
+        .send()
+        .await
+        .unwrap_or_else(|e| panic!("GET {url} failed: {e}"));
+
+    let status = res.status();
+    assert_eq!(
+        status.as_u16(),
+        200,
+        "expected 200, got {status} for {url} — SPA fallback regression?"
+    );
+
+    let ct = res
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .unwrap_or_else(|| panic!("content-type header missing on {url} — was 404 without type the bug"))
+        .to_str()
+        .expect("content-type is not valid ASCII")
+        .to_lowercase();
+    assert!(
+        ct.starts_with("text/html"),
+        "content-type must start with text/html for link previewers, got: {ct}"
+    );
+
+    let body = res.text().await.expect("read response body");
+    assert!(
+        body.contains("property=\"og:title\""),
+        "body must contain og:title meta tag for Telegram/iMessage card rendering — \
+         not found in {} bytes of body",
+        body.len()
+    );
+    assert!(
+        body.contains("property=\"og:image\""),
+        "body must contain og:image meta tag for Telegram/iMessage card rendering — \
+         not found in {} bytes of body",
+        body.len()
+    );
 }
