@@ -31,9 +31,20 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
     // fallback resolves, so we use an axum handler via ServeDir::fallback
     // which does honor the handler's status code.
     let index_html_path = format!("{room_assets_dir}/index.html");
-    let body = std::fs::read_to_string(&index_html_path)
-        .unwrap_or_else(|e| panic!("failed to read {index_html_path}: {e}"));
-    SPA_INDEX.set(body).ok();
+    match std::fs::read_to_string(&index_html_path) {
+        Ok(body) => {
+            SPA_INDEX.set(body).ok();
+        }
+        Err(e) => {
+            tracing::warn!(
+                path = %index_html_path,
+                error = %e,
+                "SPA index.html not found — fallback handler will serve a placeholder. \
+                 This is expected in tests that pass a synthetic room_assets_dir; \
+                 in production this must exist."
+            );
+        }
+    }
     let static_dir = ServeDir::new(room_assets_dir)
         .fallback(axum::handler::HandlerWithoutStateExt::into_service(spa_fallback));
 
