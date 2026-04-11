@@ -37,6 +37,10 @@ export function useCall(opts: UseCallOptions) {
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 	let wakeLock: WakeLockSentinel | null = null;
+	// Guard against duplicate `call_connected` analytics events. ICE restarts
+	// (network switch, Wi-Fi ↔ cellular) re-enter the 'connected' state on the
+	// same call; we want one tracked event per call, not per ICE transition.
+	let hasConnectedOnce = false;
 
 	// ── Wake Lock ───────────────────────────────────────────────
 
@@ -93,6 +97,9 @@ export function useCall(opts: UseCallOptions) {
 		// Unlock AudioContext on iOS (init is triggered by user gesture)
 		unlockAudio();
 
+		// Reset per-call guards so a fresh call in the same page load tracks cleanly.
+		hasConnectedOnce = false;
+
 		const audioConstraints = await preferLocalAudio();
 
 		try {
@@ -130,8 +137,11 @@ export function useCall(opts: UseCallOptions) {
 					onRemoteStream(rs: MediaStream) { remoteStream = rs; },
 					onConnectionState(state: RTCPeerConnectionState) {
 						if (state === 'connected') {
+							if (!hasConnectedOnce) {
+								hasConnectedOnce = true;
+								track('call_connected', opts.roomId, { audio_only: !videoEnabled });
+							}
 							status = 'connected';
-							track('call_connected', opts.roomId, { audio_only: !videoEnabled });
 							stopRinging();
 							playConnectSound();
 							call?.startStatsPolling();
