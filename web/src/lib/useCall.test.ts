@@ -174,6 +174,35 @@ describe('useCall — call_connected analytics guard', () => {
 		call.destroy();
 	});
 
+	it('transitions "closed" state to "waiting" status, not "failed"', async () => {
+		const { useCall } = await importUseCall();
+
+		const call = useCall({
+			get serverUrl() {
+				return 'http://localhost:0';
+			},
+			get roomId() {
+				return 'room-closed';
+			},
+			onEnded: vi.fn(),
+		});
+
+		await call.init();
+		await signalingCapture.onJoined!(true);
+
+		// Drive to connected first so there's a meaningful transition.
+		createCallCapture.onConnectionState!('connected');
+		expect(call.status).toBe('connected');
+
+		// RTCPeerConnection.connectionState === 'closed' fires on normal hangup
+		// (local pc.close()). The handler must NOT flip status to 'failed'.
+		createCallCapture.onConnectionState!('closed');
+		expect(call.status).toBe('waiting');
+		expect(call.status).not.toBe('failed');
+
+		call.destroy();
+	});
+
 	it('resets the guard on a fresh init so a second call still tracks once', async () => {
 		const { useCall } = await importUseCall();
 

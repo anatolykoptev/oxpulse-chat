@@ -149,9 +149,15 @@ export function useCall(opts: UseCallOptions) {
 							verificationEmoji = call?.getVerificationEmoji() ?? '';
 							showControls();
 							if (!timer) timer = setInterval(() => { elapsed += 1; }, 1000);
-						} else if (state === 'failed' || state === 'closed') {
+						} else if (state === 'failed') {
 							stopRinging();
 							status = 'failed';
+						} else if (state === 'closed') {
+							// Normal termination (local or remote hangup). Don't flip to 'failed'.
+							// If we're not already in the 'ended' terminal state, fall back to 'waiting'
+							// so a possible re-join still works.
+							stopRinging();
+							if (status !== 'ended') status = 'waiting';
 						}
 					},
 					sendSignal(msg: unknown) { signaling?.sendSignal(msg); },
