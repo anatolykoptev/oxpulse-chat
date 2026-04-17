@@ -20,6 +20,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 # Layer 2: source — clean workspace crates so cargo rebuilds them
 COPY crates/ crates/
+COPY config/ config/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     cargo clean -p oxpulse-signaling -p oxpulse-turn -p oxpulse-chat --release 2>/dev/null || true && \
