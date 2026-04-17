@@ -11,7 +11,8 @@
       "package-name": "turn-node",
       "changelog-path": "CHANGELOG.md",
       "extra-files": ["VERSION"],
-      "include-component-in-tag": true
+      "include-component-in-tag": true,
+      "initial-version": "1.0.0"
     }
   }
 }
