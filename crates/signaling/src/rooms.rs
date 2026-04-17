@@ -123,8 +123,4 @@ impl Rooms {
             .unwrap_or(false)
     }
 
-    #[cfg(test)]
-    pub(crate) fn count(&self) -> usize {
-        self.inner.len()
-    }
 }
