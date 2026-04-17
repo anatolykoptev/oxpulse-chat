@@ -1,0 +1,67 @@
+name: turn-node-release
+
+on:
+  push:
+    tags:
+      - 'turn-node-v*'
+
+permissions:
+  contents: write  # upload release assets
+
+jobs:
+  package-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: ver
+        run: |
+          # Tag format: turn-node-v1.2.3 -> VERSION=1.2.3
+          tag="${GITHUB_REF#refs/tags/}"
+          version="${tag#turn-node-v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Verify VERSION file matches tag
+        run: |
+          file_version=$(cat deploy/turn-node/VERSION)
+          if [[ "$file_version" != "${{ steps.ver.outputs.version }}" ]]; then
+            echo "::error::VERSION file ($file_version) != tag version (${{ steps.ver.outputs.version }})"
+            exit 1
+          fi
+
+      - name: Lint shell scripts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shopt -s nullglob
+          for f in deploy/turn-node/*.sh deploy/turn-node/scripts/*.sh; do
+            echo ">> $f"
+            shellcheck -x "$f"
+          done
+
+      - name: Build tarball
+        run: |
+          ver="${{ steps.ver.outputs.version }}"
+          tar -czf "turn-node-${ver}.tar.gz" \
+            --transform "s,^deploy/turn-node,turn-node-${ver}," \
+            deploy/turn-node
+
+      - name: Stage standalone installer as a release asset
+        run: |
+          # Partners curl this URL; it's the same install.sh, renamed for discoverability.
+          cp deploy/turn-node/install.sh turn-node-installer.sh
+          # Recompute SHA256SUMS to include all three assets.
+          ver="${{ steps.ver.outputs.version }}"
+          sha256sum "turn-node-${ver}.tar.gz" turn-node-installer.sh > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attach assets to the Release created by release-please
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${{ steps.ver.outputs.version }}"
+          gh release upload "${{ steps.ver.outputs.tag }}" \
+            "turn-node-${ver}.tar.gz" turn-node-installer.sh SHA256SUMS \
+            --clobber
