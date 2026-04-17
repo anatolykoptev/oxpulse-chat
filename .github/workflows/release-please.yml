@@ -1,0 +1,22 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # The action handles per-component tagging:
+          #   component "turn-node" → tag "turn-node-v1.2.3"
+          # (The separator is "-", not "/", because release-please v4 normalises
+          # component names into tags that way — see action README "Tag names".)
