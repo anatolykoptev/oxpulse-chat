@@ -13,3 +13,5 @@ Commit scopes that drive turn-node releases:
 - `feat(turn-node)!: ...` or a `BREAKING CHANGE:` footer → MAJOR bump (env-var rename, template-incompatible change)
 
 Scopes outside `turn-node` do not cut a turn-node release.
+
+First release of the `turn-node` component will be `v1.0.0` (configured via `initial-version` in `release-please-config.json`).
