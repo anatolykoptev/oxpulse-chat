@@ -11,6 +11,7 @@
   import InitOverlay from '$lib/InitOverlay.svelte';
   import Toast from '$lib/Toast.svelte';
   import { t } from '$lib/i18n';
+  import { branding } from '$lib/branding';
 
   const roomId = $derived(page.params.roomId as string);
   const serverUrl = $derived(typeof window !== 'undefined' ? window.location.origin : '');
@@ -104,17 +105,17 @@
 </script>
 
 <svelte:head>
-  <title>OxPulse — Video Call</title>
+  <title>{$branding.site_name} — Video Call</title>
   <meta name="theme-color" content="#08080C" />
   <meta name="robots" content="noindex, nofollow" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="OxPulse — Join Video Call" />
-  <meta property="og:description" content="Join a private encrypted video call on OxPulse." />
-  <meta property="og:image" content="https://oxpulse.chat/icon-512.png" />
+  <meta property="og:title" content="{$branding.site_name} — Join Video Call" />
+  <meta property="og:description" content="Join a private encrypted video call on {$branding.site_name}." />
+  <meta property="og:image" content={$branding.og_image} />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="OxPulse — Join Video Call" />
-  <meta name="twitter:description" content="Join a private encrypted video call on OxPulse." />
-  <meta name="twitter:image" content="https://oxpulse.chat/icon-512.png" />
+  <meta name="twitter:title" content="{$branding.site_name} — Join Video Call" />
+  <meta name="twitter:description" content="Join a private encrypted video call on {$branding.site_name}." />
+  <meta name="twitter:image" content={$branding.og_image} />
 </svelte:head>
 
 {#if call.status === 'ended'}

@@ -8,9 +8,6 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use axum::http::header::{CONTENT_TYPE, HeaderValue};
-use axum::http::{HeaderMap, StatusCode};
-use axum::response::IntoResponse;
 use include_dir::{include_dir, Dir};
 use serde::{Deserialize, Serialize};
 
@@ -122,78 +119,43 @@ pub fn resolve_by_host(host: &str) -> &'static BrandingConfig {
     &BRANDINGS[idx]
 }
 
-/// HTTP handler for `GET /api/branding`.
+/// Substitutes `__BRANDING_*__` placeholders in an HTML template.
 ///
-/// Serializes the static `&BrandingConfig` directly — no clone per request.
-pub async fn handler(headers: HeaderMap) -> impl IntoResponse {
-    let host = headers
-        .get("x-forwarded-host")
-        .or_else(|| headers.get("host"))
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("")
-        .split(':') // strip :port
-        .next()
-        .unwrap_or("");
-    let cfg = resolve_by_host(host);
-    let body = match serde_json::to_vec(cfg) {
-        Ok(b) => b,
-        Err(e) => {
-            tracing::error!(error = %e, "branding: serialization failed");
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                [(CONTENT_TYPE, HeaderValue::from_static("application/json"))],
-                br#"{"error":"serialization failed"}"#.to_vec(),
-            )
-                .into_response();
-        }
-    };
-    (
-        StatusCode::OK,
-        [(CONTENT_TYPE, HeaderValue::from_static("application/json"))],
-        body,
-    )
-        .into_response()
+/// Called by the SPA fallback handler in router.rs for every SPA route so
+/// that crawlers (Telegram, iMessage, Twitter) see partner-specific OG tags
+/// without executing JS. Values injected into the JSON-LD block must be
+/// JSON-safe (no `"` or `\`); partner configs are hand-authored so this is
+/// acceptable without escaping logic — add an escape layer if configs become
+/// user-controlled.
+pub fn render_index(template: &str, cfg: &BrandingConfig) -> String {
+    template
+        .replace("__BRANDING_SITE_NAME__", &cfg.display_name)
+        .replace("__BRANDING_TITLE__", &cfg.display_name)
+        .replace("__BRANDING_DESCRIPTION__", &cfg.description)
+        .replace("__BRANDING_CANONICAL__", &primary_canonical(cfg))
+        .replace("__BRANDING_OG_URL__", &primary_canonical(cfg))
+        .replace("__BRANDING_OG_IMAGE__", &absolute_asset_url(cfg, &cfg.og_image))
+        .replace("__BRANDING_FAVICON__", &cfg.favicon)
+        .replace("__BRANDING_PARTNER_ID__", &cfg.partner_id)
+}
+
+fn primary_canonical(cfg: &BrandingConfig) -> String {
+    match cfg.domains.first() {
+        Some(d) => format!("https://{}/", d),
+        None => "/".to_string(),
+    }
+}
+
+fn absolute_asset_url(cfg: &BrandingConfig, path: &str) -> String {
+    if path.starts_with("http://") || path.starts_with("https://") {
+        return path.to_string();
+    }
+    match cfg.domains.first() {
+        Some(d) => format!("https://{}{}", d, path),
+        None => path.to_string(),
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resolve_known_host_returns_matching_config() {
-        let cfg = resolve_by_host("oxpulse.chat");
-        assert_eq!(cfg.partner_id, "oxpulse");
-    }
-
-    #[test]
-    fn resolve_unknown_host_returns_default() {
-        let cfg = resolve_by_host("random.example.com");
-        assert_eq!(cfg.partner_id, "oxpulse");
-    }
-
-    #[test]
-    fn resolve_is_case_insensitive() {
-        let cfg = resolve_by_host("OxPulse.Chat");
-        assert_eq!(cfg.partner_id, "oxpulse");
-    }
-
-    #[test]
-    fn empty_host_returns_default() {
-        let cfg = resolve_by_host("");
-        assert_eq!(cfg.partner_id, "oxpulse");
-    }
-
-    /// Proves resolve_by_host uses exact match, not suffix match.
-    /// A malicious subdomain like "oxpulse.chat.evil.com" must not hijack
-    /// the default branding via a naive `ends_with` refactor.
-    /// Checks the index directly: the key must not be present at all.
-    #[test]
-    fn suffix_subdomain_does_not_match_real_domain() {
-        // Force init so HOST_INDEX is populated.
-        LazyLock::force(&HOST_INDEX);
-        assert!(
-            HOST_INDEX.get("oxpulse.chat.evil.com").is_none(),
-            "suffix match would allow host hijacking"
-        );
-    }
-}
+#[path = "branding_tests.rs"]
+mod tests;

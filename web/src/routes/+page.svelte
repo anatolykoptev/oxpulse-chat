@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
   import { track } from '$lib/tracker';
+  import { branding } from '$lib/branding';
   import LangSwitcher from '$lib/LangSwitcher.svelte';
   import { generateRoomCode, isValidRoomId } from '$lib/roomcode';
   import BackgroundLayer from '$lib/BackgroundLayer.svelte';
@@ -46,27 +47,27 @@
 </script>
 
 <svelte:head>
-  <title>OxPulse — Encrypted Video Calls</title>
-  <meta name="description" content="Encrypted video calls. Click a link, start talking. No install, no account." />
-  <link rel="canonical" href="https://oxpulse.chat/" />
+  <title>{$branding.title}</title>
+  <meta name="description" content={$branding.description} />
+  <link rel="canonical" href={$branding.canonical} />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://oxpulse.chat/" />
-  <meta property="og:title" content="OxPulse — Encrypted Video Calls" />
-  <meta property="og:description" content="Click a link, start talking. No install, no account." />
-  <meta property="og:image" content="https://oxpulse.chat/og-image.png" />
+  <meta property="og:url" content={$branding.og_url} />
+  <meta property="og:title" content={$branding.title} />
+  <meta property="og:description" content={$branding.description} />
+  <meta property="og:image" content={$branding.og_image} />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:site_name" content="OxPulse" />
+  <meta property="og:site_name" content={$branding.site_name} />
   <meta property="og:locale" content="en_US" />
   <meta property="og:locale:alternate" content="ru_RU" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="OxPulse — Encrypted Video Calls" />
-  <meta name="twitter:description" content="Click a link, start talking." />
-  <meta name="twitter:image" content="https://oxpulse.chat/og-image.png" />
+  <meta name="twitter:title" content={$branding.title} />
+  <meta name="twitter:description" content={$branding.description} />
+  <meta name="twitter:image" content={$branding.og_image} />
 </svelte:head>
 
 <div class="landing" class:mounted>
