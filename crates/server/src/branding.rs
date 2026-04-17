@@ -156,6 +156,10 @@ fn absolute_asset_url(cfg: &BrandingConfig, path: &str) -> String {
     }
 }
 
+/// HTTP handler for `GET /api/branding` — lives in `branding_handler.rs`
+/// (registered as a sibling module in `lib.rs`).
+pub use crate::branding_handler::handler;
+
 #[cfg(test)]
 #[path = "branding_tests.rs"]
 mod tests;

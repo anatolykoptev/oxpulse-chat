@@ -69,7 +69,7 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
         .route("/api/turn-credentials", post(turn_credentials))
         .route("/api/event", post(crate::analytics::ingest))
         .route("/api/health", get(health))
-        .route("/api/branding", get(branding_api))
+        .route("/api/branding", get(crate::branding::handler))
         .nest("/_app/immutable", immutable)
         .nest("/fonts", fonts)
         .fallback_service(static_dir)
@@ -102,37 +102,6 @@ async fn spa_fallback(req_headers: HeaderMap) -> impl IntoResponse {
     let mut resp_headers = HeaderMap::new();
     resp_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
     (StatusCode::OK, resp_headers, body)
-}
-
-/// HTTP handler for `GET /api/branding`.
-/// Serializes the static `&BrandingConfig` directly — no clone per request.
-async fn branding_api(headers: HeaderMap) -> impl IntoResponse {
-    let host = headers
-        .get("x-forwarded-host")
-        .or_else(|| headers.get("host"))
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("")
-        .split(':')
-        .next()
-        .unwrap_or("");
-    let cfg = crate::branding::resolve_by_host(host);
-    match serde_json::to_vec(cfg) {
-        Ok(body) => (
-            StatusCode::OK,
-            [(CONTENT_TYPE, HeaderValue::from_static("application/json"))],
-            body,
-        )
-            .into_response(),
-        Err(e) => {
-            tracing::error!(error = %e, "branding: serialization failed");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                [(CONTENT_TYPE, HeaderValue::from_static("application/json"))],
-                br#"{"error":"serialization failed"}"#.to_vec(),
-            )
-                .into_response()
-        }
-    }
 }
 
 async fn ws_call(
