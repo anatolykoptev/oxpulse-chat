@@ -44,123 +44,52 @@ HMAC credentials; media flows browser ↔ coturn ↔ browser directly.
   committed to git, never pasted in chat history.** Rotated on a
   schedule — operator notifies the partner before each rotation.
 
-## 4. Step 1 — Install coturn
+## 4. One-command install
 
-**Debian / Ubuntu:**
-
-```bash
-sudo apt-get update
-sudo apt-get install -y coturn
-sudo sed -i 's/^#TURNSERVER_ENABLED=1/TURNSERVER_ENABLED=1/' /etc/default/coturn
-```
-
-**RHEL / Rocky / Alma:**
+On a freshly provisioned VM (Debian 12, Ubuntu 22.04/24.04, RHEL/Alma/Rocky/CentOS Stream 9),
+as root:
 
 ```bash
-sudo dnf install -y epel-release
-sudo dnf install -y coturn
+curl -fsSL https://raw.githubusercontent.com/anatolykoptev/oxpulse-chat/main/deploy/turn-node/install.sh \
+  | TURN_SECRET='<shared-secret>' \
+    REGION='<operator-assigned>' \
+    PUBLIC_HOST='<dns-name-you-registered>' \
+    bash
 ```
 
-## 5. Step 2 — /etc/turnserver.conf
+The installer:
+- detects the distro, installs `coturn` (+ `coturn-utils` on RHEL), `chrony`, and a firewall tool;
+- lays down `/etc/default/oxpulse-turn` (the one file you edit later — see
+  `deploy/turn-node/README.md` for the full variable list);
+- installs a systemd `ExecStartPre` oneshot that renders `/etc/turnserver.conf`
+  from a repo-controlled template on every restart;
+- opens the firewall (UDP 3478/3479, TCP 3478, UDP 49152-65535) via
+  `firewalld` or `ufw`;
+- enables `chronyd` — TURN credential TTL is HMAC-over-timestamp, so clock
+  drift breaks auth.
 
-Replace the shipped config with the block below. Substitute
-`<REPLACE_WITH_SHARED_SECRET>`, `<PUBLIC_IPV4>`, and `<PRIVATE_IPV4>`
-(omit the `/` and private half on bare-metal hosts without NAT).
-
-```conf
-listening-port=3478
-fingerprint
-lt-cred-mech
-use-auth-secret
-static-auth-secret=<REPLACE_WITH_SHARED_SECRET>
-realm=oxpulse.chat
-total-quota=200
-stale-nonce=600
-no-tls
-no-dtls
-no-tcp-relay
-denied-peer-ip=10.0.0.0-10.255.255.255
-denied-peer-ip=172.16.0.0-172.31.255.255
-denied-peer-ip=192.168.0.0-192.168.255.255
-min-port=49152
-max-port=65535
-external-ip=<PUBLIC_IPV4>/<PRIVATE_IPV4>
-log-file=/var/log/turnserver/turn.log
-```
-
-Key lines:
-
-- `use-auth-secret` + `static-auth-secret` — enables coturn's HMAC REST
-  API. The signaling server hands clients a short-lived
-  `{unix_expiry}:chat-user` username and the matching
-  `base64(HMAC-SHA1(secret, username))` credential (see
-  `crates/turn/src/lib.rs`). The secret on both sides MUST match
-  byte-for-byte.
-- `denied-peer-ip` — blocks relay into RFC1918 networks. **Critical.**
-  Without these lines the relay becomes an SSRF vector into the
-  partner's internal infra.
-- `external-ip` — fixes NAT reflection on cloud VMs where the public
-  IP is one-to-one mapped to a private NIC address. On bare metal
-  with a directly attached public IP, use `external-ip=<PUBLIC_IPV4>`
-  without the slash.
-- `no-tls` / `no-dtls` — TLS termination for the app happens at Caddy
-  on the signaling host; TURN/TLS (port 5349) is deliberately
-  out-of-scope for v1. If the partner wants TURNS later, open a
-  ticket — will require an additional cert + firewall rule.
-- `min-port` / `max-port` — must match the firewall rule in step 3.
-
-## 6. Step 3 — Firewall
-
-**ufw:**
+## 5. Verify
 
 ```bash
-sudo ufw allow 3478/udp
-sudo ufw allow 3479/udp
-sudo ufw allow 3478/tcp
-sudo ufw allow 49152:65535/udp
+/usr/local/sbin/oxpulse-turn-healthcheck
 ```
 
-**nftables** (append to the `inet filter input` chain):
+The last line of output is the registration string to send the operator.
 
-```nft
-udp dport 3478 accept
-udp dport 3479 accept
-tcp dport 3478 accept
-udp dport 49152-65535 accept
-```
+## 6. Cloning to other regions
 
-**iptables** (legacy):
+Snapshot the VM *after* `install.sh` succeeds and *before* any partner-specific
+state accumulates. Clone, then on each clone:
 
 ```bash
-sudo iptables -A INPUT -p udp --dport 3478 -j ACCEPT
-sudo iptables -A INPUT -p udp --dport 3479 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 3478 -j ACCEPT
-sudo iptables -A INPUT -p udp --dport 49152:65535 -j ACCEPT
+vi /etc/default/oxpulse-turn   # update REGION; blank PUBLIC_IPV4 so it autodetects
+systemctl restart coturn
+/usr/local/sbin/oxpulse-turn-healthcheck
 ```
 
-## 7. Step 4 — Start and verify
+Send the new registration line to the operator.
 
-```bash
-sudo mkdir -p /var/log/turnserver
-sudo systemctl enable --now coturn
-sudo systemctl status coturn
-```
-
-Verify from any host with a public route:
-
-```bash
-# STUN binding probe (should print Mapped Address = your public IP)
-turnutils_stunclient <public_ip>
-
-# Raw TCP reachability
-nc -zv <public_ip> 3478
-```
-
-If `turnutils_stunclient` times out, the firewall, cloud security
-group, or `external-ip` setting is wrong. Fix before continuing —
-the signaling-side probe (step 6) will fail otherwise.
-
-## 8. Step 5 — Register with the operator
+## 7. Register with the operator
 
 Send the oxpulse-chat operator one line in this exact format:
 
@@ -206,7 +135,7 @@ The config format parsed by
 `crates/server/src/config.rs::parse_turn_servers` is stable across
 both paths — only the delivery mechanism differs.
 
-## 9. Step 6 — Verify the node is live
+## 8. Verify the node is live
 
 **Operator side (logs):**
 
@@ -246,7 +175,7 @@ The `/metrics` endpoint and the `turn_servers_healthy` gauge ship in
 **Task 3.1** (Prometheus export). Until 3.1 lands, use the log line
 check above as the source of truth.
 
-## 10. Draining a node for maintenance
+## 9. Draining a node for maintenance
 
 Two options, both operator-driven:
 
@@ -264,15 +193,15 @@ Two options, both operator-driven:
    coturn — coordinate the shutdown window with the operator.
 
 Maintenance window complete → re-add the entry with the original
-priority and verify per step 6.
+priority and verify per §8.
 
-## 11. Incident response
+## 10. Incident response
 
 For an active TURN outage affecting production traffic, see
 `docs/runbooks/turn-outage.md` (ships in **Task 3.5**). Until then,
 page the oxpulse-chat on-call via the partner escalation channel.
 
-## 12. Appendix — credential flow
+## 11. Appendix — credential flow
 
 The signaling server does not speak to coturn at all. Instead, both
 sides share `static-auth-secret`, and the signaling server mints

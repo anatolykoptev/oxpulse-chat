@@ -58,6 +58,10 @@ web/ (SvelteKit 5)
 └── Call room (WebRTC, Perfect Negotiation pattern)
 ```
 
+### Running a TURN relay
+
+See [`deploy/turn-node/README.md`](deploy/turn-node/README.md) for the one-command installer that provisions a production-grade coturn partner node on Debian/Ubuntu or RHEL-family VMs.
+
 ## License
 
 AGPL-3.0 — see [LICENSE](LICENSE)
