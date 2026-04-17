@@ -12,6 +12,11 @@ ExecStart=/usr/local/sbin/oxpulse-turn-render
 # If rendering fails, coturn won't start (drop-in below makes it a hard dep).
 StandardOutput=journal
 StandardError=journal
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/turnserver.conf /var/log/turnserver /var/run/turnserver /etc /usr/local/share/oxpulse-turn
+ProtectHome=yes
+PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target
