@@ -1,7 +1,14 @@
 <script lang="ts">
   import type { Translations } from './i18n';
+  import { branding } from '$lib/branding';
+  import { locale } from '$lib/i18n';
+  import Logo from '$lib/Logo.svelte';
 
   let { t }: { t: Translations } = $props();
+
+  const heroTitle = $derived(
+    $branding.copy[`hero_title_${$locale}`] ?? t.heroTitle
+  );
 </script>
 
 <header class="hero">
@@ -11,11 +18,11 @@
       <circle cx="12" cy="12" r="7" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
       <circle cx="12" cy="12" r="11" stroke="var(--accent)" stroke-width="0.5" opacity="0.2" />
     </svg>
-    <span class="logo-text">OxPulse</span>
+    <span class="logo-text">{$branding.site_name}</span>
   </div>
 
   <h1 class="hero-title">
-    <span class="title-line">{t.heroTitle}</span>
+    <span class="title-line">{heroTitle}</span>
     <span class="title-accent">{t.heroTitleAccent}</span>
   </h1>
 

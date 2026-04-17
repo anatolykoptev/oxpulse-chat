@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Translations } from './i18n';
+  import { branding } from '$lib/branding';
 
   let { t }: { t: Translations } = $props();
 
@@ -7,7 +8,7 @@
 </script>
 
 <footer class="footer">
-  <span class="footer-copy">&copy; 2026 OxPulse</span>
+  <span class="footer-copy">&copy; 2026 {$branding.site_name}</span>
   <p class="oss">Open Source · <a href="https://github.com/anatolykoptev/oxpulse-chat" target="_blank" rel="noopener">GitHub</a></p>
   <nav class="footer-links desktop-only">
     <a href="/privacy">{t.footerPrivacy}</a>

@@ -11,6 +11,7 @@
   import ActionsBlock from '$lib/ActionsBlock.svelte';
   import FeatureCards from '$lib/FeatureCards.svelte';
   import LandingFooter from '$lib/LandingFooter.svelte';
+  import AffiliateBanner from '$lib/AffiliateBanner.svelte';
 
   let roomCode = $state('');
   let codeError = $state('');
@@ -90,6 +91,7 @@
     />
 
     <FeatureCards t={$t} />
+    <AffiliateBanner />
   </main>
 
   <LandingFooter t={$t} />
@@ -98,13 +100,13 @@
 
 <style>
   :root {
-    --accent: #C9A96E;
-    --accent-dim: rgba(201, 169, 110, 0.15);
-    --accent-glow: rgba(201, 169, 110, 0.08);
+    --accent: var(--brand-primary, #C9A96E);
+    --accent-dim: color-mix(in srgb, var(--brand-primary, #C9A96E) 15%, transparent);
+    --accent-glow: color-mix(in srgb, var(--brand-primary, #C9A96E) 8%, transparent);
     --surface: rgba(255, 255, 255, 0.07);
     --surface-hover: rgba(255, 255, 255, 0.11);
     --border: rgba(255, 255, 255, 0.12);
-    --border-accent: rgba(201, 169, 110, 0.3);
+    --border-accent: color-mix(in srgb, var(--brand-primary, #C9A96E) 30%, transparent);
     --font: 'Onest', system-ui, sans-serif;
     --mono: 'Martian Mono', 'JetBrains Mono', monospace;
     --serif: 'Cormorant Garamond', Georgia, serif;

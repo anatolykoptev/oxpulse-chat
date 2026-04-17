@@ -2,8 +2,19 @@
 	import { onMount } from 'svelte';
 	import { initLocale } from '$lib/i18n';
 	import { refreshMirrorChain } from '$lib/connectivity';
+	import { branding } from '$lib/branding';
 
 	let { children } = $props();
+
+	$effect(() => {
+		if (typeof document === 'undefined') return;
+		const root = document.documentElement;
+		root.style.setProperty('--brand-primary', $branding.primary_color);
+		root.style.setProperty('--brand-secondary', $branding.secondary_color);
+		if ($branding.accent_color) {
+			root.style.setProperty('--brand-accent', $branding.accent_color);
+		}
+	});
 
 	onMount(() => {
 		initLocale();
