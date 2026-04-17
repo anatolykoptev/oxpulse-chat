@@ -8,17 +8,10 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::IntoResponse;
 
 /// Resolves the partner branding config for the requesting host and returns
-/// it as JSON. Uses `X-Forwarded-Host` with a fallback to `Host`.
+/// it as JSON. See `branding::extract_host` for header priority order.
 pub async fn handler(headers: HeaderMap) -> impl IntoResponse {
-    let host = headers
-        .get("x-forwarded-host")
-        .or_else(|| headers.get("host"))
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("")
-        .split(':')
-        .next()
-        .unwrap_or("");
-    let cfg = crate::branding::resolve_by_host(host);
+    let host = crate::branding::extract_host(&headers);
+    let cfg = crate::branding::resolve_by_host(&host);
     match serde_json::to_vec(cfg) {
         Ok(body) => (
             StatusCode::OK,

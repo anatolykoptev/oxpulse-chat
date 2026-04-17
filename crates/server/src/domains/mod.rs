@@ -30,15 +30,7 @@ pub const CONFIG_VERSION: u64 = 1;
 
 /// Handler for `GET /api/domains`.
 pub async fn handler(headers: HeaderMap) -> Json<DomainsResponse> {
-    let host = headers
-        .get("x-forwarded-host")
-        .or_else(|| headers.get("host"))
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("")
-        .split(':')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let host = crate::branding::extract_host(&headers);
 
     let (primary, mirrors) = chain::build_mirror_chain(&host, crate::branding::all_configs());
 

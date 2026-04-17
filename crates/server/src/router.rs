@@ -86,15 +86,8 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
 }
 
 async fn spa_fallback(req_headers: HeaderMap) -> impl IntoResponse {
-    let host = req_headers
-        .get("x-forwarded-host")
-        .or_else(|| req_headers.get("host"))
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("")
-        .split(':')
-        .next()
-        .unwrap_or("");
-    let cfg = crate::branding::resolve_by_host(host);
+    let host = crate::branding::extract_host(&req_headers);
+    let cfg = crate::branding::resolve_by_host(&host);
     let template = SPA_INDEX.get().cloned().unwrap_or_else(|| {
         "<!doctype html><html><body>OxPulse</body></html>".to_string()
     });
