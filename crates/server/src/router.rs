@@ -70,6 +70,7 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
         .route("/api/event", post(crate::analytics::ingest))
         .route("/api/health", get(health))
         .route("/api/branding", get(crate::branding::handler))
+        .route("/api/domains", get(crate::domains::handler))
         .nest("/_app/immutable", immutable)
         .nest("/fonts", fonts)
         .fallback_service(static_dir)

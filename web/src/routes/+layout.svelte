@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { initLocale } from '$lib/i18n';
+	import { refreshMirrorChain } from '$lib/connectivity';
 
 	let { children } = $props();
 
 	onMount(() => {
 		initLocale();
+		refreshMirrorChain();
 
 		if ('serviceWorker' in navigator) {
 			// Unregister old SW from /room/ path

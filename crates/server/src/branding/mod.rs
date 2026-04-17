@@ -122,6 +122,13 @@ pub fn resolve_by_host(host: &str) -> &'static BrandingConfig {
     &BRANDINGS[idx]
 }
 
+/// Returns a reference to all loaded partner configurations.
+///
+/// Useful for building full domain lists (e.g. for `/api/domains`).
+pub fn all_configs() -> &'static [BrandingConfig] {
+    &BRANDINGS
+}
+
 pub use render::render_index;
 pub use handler::handler;
 
