@@ -45,16 +45,28 @@ export function deriveFromHost(): BrandingData {
 	};
 }
 
+/// Parse raw backend JSON (from /api/branding or bootstrap script tag) into
+/// BrandingData. Throws if required fields are missing or not strings, so the
+/// caller's try/catch can keep the last-known-good value instead of rendering
+/// "undefined" in the document title.
 export function fromBackend(raw: Record<string, unknown>): BrandingData {
+	const partnerId = raw.partner_id;
+	if (typeof partnerId !== 'string' || partnerId === '') {
+		throw new Error(`branding: missing or empty partner_id in response`);
+	}
+	const displayName = raw.display_name;
+	if (typeof displayName !== 'string' || displayName === '') {
+		throw new Error(`branding: missing or empty display_name in response`);
+	}
 	const firstDomain = (raw.domains as string[] | undefined)?.[0] ?? 'oxpulse.chat';
 	const rawOgImage = raw.og_image as string | undefined ?? '';
 	const logo = raw.logo as { light?: string; dark?: string } | undefined;
 	const colors = raw.colors as { primary?: string; secondary?: string; accent?: string } | undefined;
 	const affiliate = raw.affiliate as BrandingData['affiliate'];
 	return {
-		partner_id: raw.partner_id as string,
-		title: raw.display_name as string,
-		site_name: raw.display_name as string,
+		partner_id: partnerId,
+		title: displayName,
+		site_name: displayName,
 		description: raw.description as string,
 		canonical: `https://${firstDomain}/`,
 		og_url: `https://${firstDomain}/`,
@@ -72,13 +84,39 @@ export function fromBackend(raw: Record<string, unknown>): BrandingData {
 	};
 }
 
-export const branding: Readable<BrandingData> = readable(deriveFromHost(), (set) => {
+/// Read branding bootstrapped inline by the server into the `__branding_boot__`
+/// script tag. Returns null in SSR context or if the tag is absent/unparseable.
+function readBootstrap(): BrandingData | null {
+	if (typeof document === 'undefined') return null;
+	const el = document.getElementById('__branding_boot__');
+	if (!el || !el.textContent) return null;
+	try {
+		const raw = JSON.parse(el.textContent);
+		return fromBackend(raw);
+	} catch (e) {
+		console.warn('branding bootstrap parse failed:', e);
+		return null;
+	}
+}
+
+const initial: BrandingData = readBootstrap() ?? deriveFromHost();
+
+export const branding: Readable<BrandingData> = readable(initial, (set) => {
+	// Only fetch if bootstrap wasn't available — usually we already have it.
+	// Still fetch for defense-in-depth (e.g., if the server was under heavy
+	// load and skipped injection for some reason).
 	if (typeof window === 'undefined') return;
 	fetch('/api/branding', { credentials: 'same-origin' })
 		.then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-		.then((raw) => set(fromBackend(raw)))
+		.then((raw) => {
+			try {
+				set(fromBackend(raw));
+			} catch (e) {
+				console.warn('branding parse failed:', e);
+			}
+		})
 		.catch((e) => {
-			// Non-fatal: keep the host-derived fallback. Log to console only.
+			// Non-fatal: keep the host-derived or bootstrap value. Log to console only.
 			console.warn('branding fetch failed:', e);
 		});
 });

@@ -1,4 +1,5 @@
 use super::*;
+use super::render::{primary_canonical, absolute_asset_url};
 
 #[test]
 fn resolve_known_host_returns_matching_config() {
@@ -37,6 +38,7 @@ fn suffix_subdomain_does_not_match_real_domain() {
 }
 
 fn test_cfg() -> BrandingConfig {
+    use std::collections::HashMap;
     BrandingConfig {
         partner_id: "testpartner".to_string(),
         domains: vec!["call.example.com".to_string()],
@@ -69,7 +71,8 @@ fn render_index_substitutes_all_placeholders() {
         <meta property=\"og:image\" content=\"__BRANDING_OG_IMAGE__\"/>\
         <meta property=\"og:site_name\" content=\"__BRANDING_SITE_NAME__\"/>\
         <link rel=\"icon\" href=\"__BRANDING_FAVICON__\"/>\
-        <meta name=\"partner\" content=\"__BRANDING_PARTNER_ID__\"/>";
+        <meta name=\"partner\" content=\"__BRANDING_PARTNER_ID__\"/>\
+        <script id=\"__branding_boot__\" type=\"application/json\">__BRANDING_JSON__</script>";
     let out = render_index(html, &cfg);
     assert!(out.contains("TestPartner"), "title/site_name");
     assert!(out.contains("Secure calls"), "description");
@@ -78,6 +81,28 @@ fn render_index_substitutes_all_placeholders() {
     assert!(out.contains("/favicon.ico"), "favicon");
     assert!(out.contains("testpartner"), "partner_id");
     assert!(!out.contains("__BRANDING_"), "no leftover placeholders");
+}
+
+#[test]
+fn render_index_injects_branding_json_script() {
+    let cfg = test_cfg();
+    let html = "<script id=\"__branding_boot__\" type=\"application/json\">__BRANDING_JSON__</script>";
+    let out = render_index(html, &cfg);
+    // Placeholder must be replaced
+    assert!(!out.contains("__BRANDING_JSON__"), "placeholder must be substituted");
+    // Extract the JSON from inside the script tag
+    let start = out.find('>').expect("opening tag") + 1;
+    let end = out.rfind('<').expect("closing tag");
+    let json_str = &out[start..end];
+    // Must parse as a valid JSON object
+    let parsed: serde_json::Value =
+        serde_json::from_str(json_str).expect("injected content must be valid JSON");
+    assert!(parsed.is_object(), "must be a JSON object");
+    assert_eq!(
+        parsed["partner_id"].as_str().unwrap(),
+        "testpartner",
+        "partner_id must round-trip through JSON"
+    );
 }
 
 #[test]

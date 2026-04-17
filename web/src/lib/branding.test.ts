@@ -102,6 +102,24 @@ describe('fromBackend', () => {
 		expect(b.accent_color).toBeNull();
 	});
 
+	it('throws on missing partner_id', () => {
+		const { partner_id: _omit, ...withoutId } = raw;
+		expect(() => fromBackend(withoutId)).toThrow(/partner_id/);
+	});
+
+	it('throws on empty partner_id', () => {
+		expect(() => fromBackend({ ...raw, partner_id: '' })).toThrow(/partner_id/);
+	});
+
+	it('throws on missing display_name', () => {
+		const { display_name: _omit, ...withoutName } = raw;
+		expect(() => fromBackend(withoutName)).toThrow(/display_name/);
+	});
+
+	it('throws on empty display_name', () => {
+		expect(() => fromBackend({ ...raw, display_name: '' })).toThrow(/display_name/);
+	});
+
 	// Store fetch behavior: unit-test helpers only; store integration test
 	// skipped because Vitest lacks a jsdom environment wired to the SvelteKit
 	// readable() lifecycle. Follow-up: add playwright e2e test for /api/branding

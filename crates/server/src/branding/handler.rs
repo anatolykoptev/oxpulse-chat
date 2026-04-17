@@ -1,6 +1,6 @@
 //! HTTP handler for `GET /api/branding`.
 //!
-//! Separated from `branding.rs` (data + resolution logic) so that the HTTP
+//! Separated from the data and resolution logic so that the HTTP
 //! surface lives in its own concern boundary.
 
 use axum::http::header::CONTENT_TYPE;

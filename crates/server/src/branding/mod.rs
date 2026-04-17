@@ -67,7 +67,7 @@ pub struct BrandingConfig {
 /// Files are sorted by name so that `oxpulse.json` is always index 0 (default).
 /// Malformed JSON is a programmer error — panic loudly with the file path so
 /// it is caught before the service ever handles a request (see `init()`).
-static BRANDINGS: LazyLock<Vec<BrandingConfig>> = LazyLock::new(|| {
+pub(crate) static BRANDINGS: LazyLock<Vec<BrandingConfig>> = LazyLock::new(|| {
     let mut files: Vec<_> = PARTNERS_DIR.files().collect();
     files.sort_by_key(|f| f.path());
 
@@ -81,7 +81,7 @@ static BRANDINGS: LazyLock<Vec<BrandingConfig>> = LazyLock::new(|| {
 });
 
 /// Lowercase-hostname → index into `BRANDINGS`.
-static HOST_INDEX: LazyLock<HashMap<String, usize>> = LazyLock::new(|| {
+pub(crate) static HOST_INDEX: LazyLock<HashMap<String, usize>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     for (idx, cfg) in BRANDINGS.iter().enumerate() {
         for domain in &cfg.domains {
@@ -119,47 +119,10 @@ pub fn resolve_by_host(host: &str) -> &'static BrandingConfig {
     &BRANDINGS[idx]
 }
 
-/// Substitutes `__BRANDING_*__` placeholders in an HTML template.
-///
-/// Called by the SPA fallback handler in router.rs for every SPA route so
-/// that crawlers (Telegram, iMessage, Twitter) see partner-specific OG tags
-/// without executing JS. Values injected into the JSON-LD block must be
-/// JSON-safe (no `"` or `\`); partner configs are hand-authored so this is
-/// acceptable without escaping logic — add an escape layer if configs become
-/// user-controlled.
-pub fn render_index(template: &str, cfg: &BrandingConfig) -> String {
-    template
-        .replace("__BRANDING_SITE_NAME__", &cfg.display_name)
-        .replace("__BRANDING_TITLE__", &cfg.display_name)
-        .replace("__BRANDING_DESCRIPTION__", &cfg.description)
-        .replace("__BRANDING_CANONICAL__", &primary_canonical(cfg))
-        .replace("__BRANDING_OG_URL__", &primary_canonical(cfg))
-        .replace("__BRANDING_OG_IMAGE__", &absolute_asset_url(cfg, &cfg.og_image))
-        .replace("__BRANDING_FAVICON__", &cfg.favicon)
-        .replace("__BRANDING_PARTNER_ID__", &cfg.partner_id)
-}
+pub use render::render_index;
+pub use handler::handler;
 
-fn primary_canonical(cfg: &BrandingConfig) -> String {
-    match cfg.domains.first() {
-        Some(d) => format!("https://{}/", d),
-        None => "/".to_string(),
-    }
-}
-
-fn absolute_asset_url(cfg: &BrandingConfig, path: &str) -> String {
-    if path.starts_with("http://") || path.starts_with("https://") {
-        return path.to_string();
-    }
-    match cfg.domains.first() {
-        Some(d) => format!("https://{}{}", d, path),
-        None => path.to_string(),
-    }
-}
-
-/// HTTP handler for `GET /api/branding` — lives in `branding_handler.rs`
-/// (registered as a sibling module in `lib.rs`).
-pub use crate::branding_handler::handler;
-
+pub(crate) mod render;
+pub(crate) mod handler;
 #[cfg(test)]
-#[path = "branding_tests.rs"]
 mod tests;
