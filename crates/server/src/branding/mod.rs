@@ -131,19 +131,15 @@ pub fn all_configs() -> &'static [BrandingConfig] {
 
 /// Extracts the partner-identifying host from request headers.
 ///
-/// Priority order: `X-Oxpulse-Host` → `X-Forwarded-Host` → `Host`.
+/// Priority: `X-Forwarded-Host` (set by trusted upstream proxies) → `Host`.
+/// Caddy's `trusted_proxies` directive must be configured at the origin
+/// for X-Forwarded-Host from edge proxies to survive — otherwise Caddy
+/// drops it as anti-spoofing protection.
 ///
-/// Why X-Oxpulse-Host first: reverse proxies like Caddy and some CDNs
-/// re-set `X-Forwarded-Host` to match the local Host header, overriding any
-/// client-provided value. Our edge proxies (partner Caddy/nginx) explicitly
-/// set `X-Oxpulse-Host` as a namespaced header that is never touched by
-/// upstream intermediaries.
-///
-/// Strips the port component, lowercases for case-insensitive lookup.
+/// Strips port, lowercases for case-insensitive lookup.
 pub fn extract_host(headers: &axum::http::HeaderMap) -> String {
     headers
-        .get("x-oxpulse-host")
-        .or_else(|| headers.get("x-forwarded-host"))
+        .get("x-forwarded-host")
         .or_else(|| headers.get("host"))
         .and_then(|h| h.to_str().ok())
         .unwrap_or("")
