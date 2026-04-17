@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "include-component-in-tag": true,
+  "include-v-in-tag": true,
+  "separate-pull-requests": true,
+  "packages": {
+    "deploy/turn-node": {
+      "component": "turn-node",
+      "release-type": "simple",
+      "package-name": "turn-node",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": ["VERSION"],
+      "include-component-in-tag": true
+    }
+  }
+}
