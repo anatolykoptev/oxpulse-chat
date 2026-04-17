@@ -18,6 +18,7 @@ async fn main() {
         .init();
 
     let config = Config::from_env();
+    oxpulse_chat::branding::init();
 
     let rooms = oxpulse_signaling::Rooms::new();
     rooms.start_cleanup_task();

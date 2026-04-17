@@ -69,7 +69,7 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
         .route("/api/turn-credentials", post(turn_credentials))
         .route("/api/event", post(crate::analytics::ingest))
         .route("/api/health", get(health))
-        .route("/api/branding", get(branding_handler))
+        .route("/api/branding", get(crate::branding::handler))
         .nest("/_app/immutable", immutable)
         .nest("/fonts", fonts)
         .fallback_service(static_dir)
@@ -121,17 +121,4 @@ async fn turn_credentials(State(state): State<AppState>) -> impl IntoResponse {
 
 async fn health() -> &'static str {
     "ok"
-}
-
-async fn branding_handler(headers: HeaderMap) -> impl IntoResponse {
-    let host = headers
-        .get("x-forwarded-host")
-        .or_else(|| headers.get("host"))
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("")
-        .split(':') // strip :port
-        .next()
-        .unwrap_or("");
-    let cfg = crate::branding::resolve_by_host(host);
-    (StatusCode::OK, Json(cfg.clone()))
 }
