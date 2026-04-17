@@ -1,0 +1,13 @@
+[Unit]
+Description=oxpulse-chat TURN node — nightly upgrade check (disabled by default)
+Documentation=https://github.com/anatolykoptev/oxpulse-chat/tree/main/deploy/turn-node
+
+[Timer]
+# Every day at a randomised time in a 03:00-05:00 window (partner-local).
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=2h
+Persistent=true
+Unit=oxpulse-turn-upgrade.service
+
+[Install]
+WantedBy=timers.target

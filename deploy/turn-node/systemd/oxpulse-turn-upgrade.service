@@ -1,0 +1,13 @@
+[Unit]
+Description=oxpulse-chat TURN node — check + apply release upgrades
+Documentation=https://github.com/anatolykoptev/oxpulse-chat/tree/main/deploy/turn-node
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/oxpulse-turn-upgrade
+# Network flaps shouldn't brick a restart — never propagate failure to a restart loop.
+SuccessExitStatus=0 10
+StandardOutput=journal
+StandardError=journal
