@@ -37,7 +37,7 @@ async fn main() {
     };
 
     let turn_pool = oxpulse_chat::turn_pool::TurnPool::new(config.turn_servers.clone());
-    turn_pool.start_probe_task(
+    let _probe_handle = turn_pool.start_probe_task(
         std::time::Duration::from_secs(config.turn_probe_interval_secs),
         config.turn_unhealthy_after_fails,
     );

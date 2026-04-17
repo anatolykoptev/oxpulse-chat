@@ -117,12 +117,13 @@ async fn ws_call(
     oxpulse_signaling::ws_call_handler(ws, Path(room_id), State(state.rooms)).await
 }
 
-async fn turn_credentials(State(state): State<AppState>) -> impl IntoResponse {
+async fn turn_credentials(State(state): State<AppState>) -> axum::response::Response {
     if state.turn_secret.is_empty() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({"error": "TURN not configured"})),
-        );
+        )
+            .into_response();
     }
     // Prefer the dynamic pool when at least one server is healthy. Fall
     // back to the static `turn_urls` list (backward compat) when the pool
@@ -141,7 +142,7 @@ async fn turn_credentials(State(state): State<AppState>) -> impl IntoResponse {
         &turn_urls,
         &state.stun_urls,
     );
-    (StatusCode::OK, Json(serde_json::to_value(creds).unwrap()))
+    (StatusCode::OK, Json(creds)).into_response()
 }
 
 async fn health() -> &'static str {

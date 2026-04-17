@@ -1,23 +1,12 @@
 //! Integration tests for GET /api/domains.
 
-use axum_test::TestServer;
-use oxpulse_chat::router::{build_router, AppState};
-use oxpulse_chat::turn_pool::TurnPool;
-use oxpulse_signaling::Rooms;
+mod common;
 
-fn test_state() -> AppState {
-    AppState {
-        rooms: Rooms::new(),
-        turn_secret: String::new(),
-        turn_urls: vec![],
-        stun_urls: vec![],
-        pool: None,
-        turn_pool: TurnPool::new(vec![]),
-    }
-}
+use axum_test::TestServer;
+use oxpulse_chat::router::build_router;
 
 fn test_server() -> TestServer {
-    let app = build_router(test_state(), "/nonexistent");
+    let app = build_router(common::base_state(), "/nonexistent");
     TestServer::new(app)
 }
 

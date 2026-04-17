@@ -32,16 +32,41 @@ impl TurnPool {
     /// Spawn a background task that probes each server on `interval` and
     /// updates `healthy` / `consecutive_failures` / `last_rtt_ms`. Logs on
     /// state transitions only (turn_server_up / turn_server_down).
-    pub fn start_probe_task(&self, interval: Duration, unhealthy_after: u32) {
+    pub fn start_probe_task(
+        &self,
+        interval: Duration,
+        unhealthy_after: u32,
+    ) -> tokio::task::JoinHandle<()> {
         let servers = self.servers.clone();
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let mut tick = tokio::time::interval(interval);
             loop {
                 tick.tick().await;
                 for server in servers.iter() {
                     let addr = match parse_host_port(&server.cfg.url).await {
                         Some(a) => a,
-                        None => continue,
+                        None => {
+                            // DNS / URL parse failure counts as a probe failure so that
+                            // servers with stale DNS entries eventually fall out of the
+                            // healthy set instead of being silently rotated forever.
+                            let fails = server
+                                .consecutive_failures
+                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                                + 1;
+                            if fails >= unhealthy_after
+                                && server
+                                    .healthy
+                                    .swap(false, std::sync::atomic::Ordering::Relaxed)
+                            {
+                                tracing::warn!(
+                                    region = %server.cfg.region,
+                                    url = %server.cfg.url,
+                                    consecutive_failures = fails,
+                                    "turn_server_down_dns_unresolved"
+                                );
+                            }
+                            continue;
+                        }
                     };
                     match crate::turn_probe::probe(addr, Duration::from_secs(3)).await {
                         Ok(rtt) => {
@@ -75,6 +100,7 @@ impl TurnPool {
                 }
             }
         });
+        handle
     }
 }
 

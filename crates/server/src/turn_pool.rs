@@ -51,7 +51,19 @@ pub struct TurnPool {
     pub(crate) servers: Arc<Vec<Arc<TurnServer>>>,
 }
 
+impl Default for TurnPool {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl TurnPool {
+    /// Construct an empty pool with no servers — useful for tests and for
+    /// environments where TURN is off.
+    pub fn empty() -> Self {
+        Self::new(Vec::new())
+    }
+
     pub fn new(cfgs: Vec<TurnServerCfg>) -> Self {
         let servers = cfgs
             .into_iter()

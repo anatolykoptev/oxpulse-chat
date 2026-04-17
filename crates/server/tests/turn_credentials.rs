@@ -7,28 +7,16 @@
 //!    pool is empty OR every pool server is currently unhealthy.
 //! 3. Return `503` when `turn_secret` is unset (unchanged from Task 2.3).
 
-use std::fs;
+mod common;
+
 use std::sync::atomic::Ordering;
 
 use axum_test::TestServer;
 use oxpulse_chat::config::TurnServerCfg;
 use oxpulse_chat::router::{build_router, AppState};
 use oxpulse_chat::turn_pool::TurnPool;
-use oxpulse_signaling::Rooms;
-use tempfile::tempdir;
 
-fn base_state() -> AppState {
-    AppState {
-        rooms: Rooms::new(),
-        turn_secret: String::new(),
-        turn_urls: vec![],
-        stun_urls: vec![],
-        pool: None,
-        turn_pool: TurnPool::new(vec![]),
-    }
-}
-
-/// Collect every ICE url from the handler response body.
+/// Collect every ICE URL from the handler response body.
 fn extract_urls(body: &serde_json::Value) -> Vec<String> {
     body["ice_servers"]
         .as_array()
@@ -61,28 +49,18 @@ async fn filters_unhealthy_servers() {
             priority: 1,
         },
     ]);
-    // Flip the second server to unhealthy directly (bypass the probe loop).
     pool.all()[1].healthy.store(false, Ordering::Relaxed);
 
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.html"),
-        "<html><head><title>OxPulse</title></head></html>",
-    )
-    .unwrap();
-
+    let dir = common::spa_tempdir();
     let state = AppState {
         turn_secret: "test-secret".into(),
         turn_urls: vec!["turn:fallback.example:3478".into()],
         turn_pool: pool,
-        ..base_state()
+        ..common::base_state()
     };
-    let app = build_router(state, dir.path().to_str().unwrap());
-    let server = TestServer::new(app);
+    let server = TestServer::new(build_router(state, dir.path().to_str().unwrap()));
 
-    let response = server.post("/api/turn-credentials").await;
-    response.assert_status_ok();
-    let body: serde_json::Value = response.json();
+    let body: serde_json::Value = server.post("/api/turn-credentials").await.json();
     let urls = extract_urls(&body);
 
     assert!(
@@ -108,25 +86,16 @@ async fn falls_back_when_no_healthy_servers() {
     }]);
     pool.all()[0].healthy.store(false, Ordering::Relaxed);
 
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.html"),
-        "<html><head><title>OxPulse</title></head></html>",
-    )
-    .unwrap();
-
+    let dir = common::spa_tempdir();
     let state = AppState {
         turn_secret: "test-secret".into(),
         turn_urls: vec!["turn:fallback.example:3478".into()],
         turn_pool: pool,
-        ..base_state()
+        ..common::base_state()
     };
-    let app = build_router(state, dir.path().to_str().unwrap());
-    let server = TestServer::new(app);
+    let server = TestServer::new(build_router(state, dir.path().to_str().unwrap()));
 
-    let response = server.post("/api/turn-credentials").await;
-    response.assert_status_ok();
-    let body: serde_json::Value = response.json();
+    let body: serde_json::Value = server.post("/api/turn-credentials").await.json();
     let urls = extract_urls(&body);
 
     assert!(
@@ -141,26 +110,16 @@ async fn falls_back_when_no_healthy_servers() {
 
 #[tokio::test]
 async fn empty_pool_falls_back_to_static_urls() {
-    // Zero-server pool should behave identically to "all unhealthy".
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.html"),
-        "<html><head><title>OxPulse</title></head></html>",
-    )
-    .unwrap();
-
+    let dir = common::spa_tempdir();
     let state = AppState {
         turn_secret: "test-secret".into(),
         turn_urls: vec!["turn:fallback.example:3478".into()],
-        turn_pool: TurnPool::new(vec![]),
-        ..base_state()
+        turn_pool: TurnPool::empty(),
+        ..common::base_state()
     };
-    let app = build_router(state, dir.path().to_str().unwrap());
-    let server = TestServer::new(app);
+    let server = TestServer::new(build_router(state, dir.path().to_str().unwrap()));
 
-    let response = server.post("/api/turn-credentials").await;
-    response.assert_status_ok();
-    let body: serde_json::Value = response.json();
+    let body: serde_json::Value = server.post("/api/turn-credentials").await.json();
     let urls = extract_urls(&body);
 
     assert!(
@@ -171,8 +130,6 @@ async fn empty_pool_falls_back_to_static_urls() {
 
 #[tokio::test]
 async fn sorts_healthy_servers_by_priority_ascending() {
-    // Insert out-of-order to prove the handler sorts rather than relying on
-    // configuration order.
     let pool = TurnPool::new(vec![
         TurnServerCfg {
             url: "turn:low-prio.example:3478".into(),
@@ -186,25 +143,16 @@ async fn sorts_healthy_servers_by_priority_ascending() {
         },
     ]);
 
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.html"),
-        "<html><head><title>OxPulse</title></head></html>",
-    )
-    .unwrap();
-
+    let dir = common::spa_tempdir();
     let state = AppState {
         turn_secret: "test-secret".into(),
         turn_urls: vec![],
         turn_pool: pool,
-        ..base_state()
+        ..common::base_state()
     };
-    let app = build_router(state, dir.path().to_str().unwrap());
-    let server = TestServer::new(app);
+    let server = TestServer::new(build_router(state, dir.path().to_str().unwrap()));
 
-    let response = server.post("/api/turn-credentials").await;
-    response.assert_status_ok();
-    let body: serde_json::Value = response.json();
+    let body: serde_json::Value = server.post("/api/turn-credentials").await.json();
     let urls = extract_urls(&body);
 
     let hi_idx = urls
