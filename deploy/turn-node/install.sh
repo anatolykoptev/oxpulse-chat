@@ -164,10 +164,14 @@ fi
 # ---------- 7. Enable + start (full install) or just daemon-reload (--files-only) ----------
 systemctl daemon-reload
 if [[ $FILES_ONLY -eq 0 ]]; then
-  # Ensure log/run dirs exist before the systemd service bind-mounts them
-  # (ProtectSystem=strict requires ReadWritePaths to exist on the host).
-  install -d -m 0750 -o coturn -g coturn /var/log/turnserver /var/run/turnserver 2>/dev/null || \
-    install -d -m 0750 /var/log/turnserver /var/run/turnserver
+  # Pre-create log + run dirs with distro-appropriate ownership.
+  # systemd ProtectSystem=strict + ReadWritePaths bind-mounts these at unit start;
+  # missing dirs or wrong ownership → NAMESPACE failure (exit 226).
+  if [[ $FAMILY == rhel ]]; then
+    install -d -m 0750 -o coturn -g coturn /var/log/turnserver /var/run/turnserver
+  else
+    install -d -m 0750 -o turnserver -g turnserver /var/log/turnserver /var/run/turnserver
+  fi
 
   systemctl enable --now oxpulse-turn-render.service
   systemctl enable --now coturn.service
