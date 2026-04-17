@@ -17,6 +17,7 @@ pub struct AppState {
     pub turn_urls: Vec<String>,
     pub stun_urls: Vec<String>,
     pub pool: Option<sqlx::PgPool>,
+    pub turn_pool: crate::turn_pool::TurnPool,
 }
 
 static SPA_INDEX: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -45,8 +46,9 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
             );
         }
     }
-    let static_dir = ServeDir::new(room_assets_dir)
-        .fallback(axum::handler::HandlerWithoutStateExt::into_service(spa_fallback));
+    let static_dir = ServeDir::new(room_assets_dir).fallback(
+        axum::handler::HandlerWithoutStateExt::into_service(spa_fallback),
+    );
 
     let immutable =
         Router::new()
@@ -93,13 +95,17 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
 async fn spa_fallback(req_headers: HeaderMap) -> impl IntoResponse {
     let host = crate::branding::extract_host(&req_headers);
     let cfg = crate::branding::resolve_by_host(&host);
-    let template = SPA_INDEX.get().cloned().unwrap_or_else(|| {
-        "<!doctype html><html><body>OxPulse</body></html>".to_string()
-    });
+    let template = SPA_INDEX
+        .get()
+        .cloned()
+        .unwrap_or_else(|| "<!doctype html><html><body>OxPulse</body></html>".to_string());
     // TODO(perf): cache rendered variants per host if /api/latency-p99 regresses
     let body = crate::branding::render_index(&template, cfg);
     let mut resp_headers = HeaderMap::new();
-    resp_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+    resp_headers.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
     (StatusCode::OK, resp_headers, body)
 }
 
@@ -118,11 +124,21 @@ async fn turn_credentials(State(state): State<AppState>) -> impl IntoResponse {
             Json(serde_json::json!({"error": "TURN not configured"})),
         );
     }
+    // Prefer the dynamic pool when at least one server is healthy. Fall
+    // back to the static `turn_urls` list (backward compat) when the pool
+    // is empty OR every server is currently unhealthy.
+    let mut healthy = state.turn_pool.healthy();
+    let turn_urls: Vec<String> = if !healthy.is_empty() {
+        healthy.sort_by_key(|s| s.cfg.priority);
+        healthy.iter().map(|s| s.cfg.url.clone()).collect()
+    } else {
+        state.turn_urls.clone()
+    };
     let creds = oxpulse_turn::generate_credentials(
         &state.turn_secret,
         "chat-user",
         Duration::from_secs(86400),
-        &state.turn_urls,
+        &turn_urls,
         &state.stun_urls,
     );
     (StatusCode::OK, Json(serde_json::to_value(creds).unwrap()))

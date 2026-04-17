@@ -12,13 +12,9 @@ pub struct Config {
     pub turn_urls: Vec<String>,
     /// Structured TURN server list with region/priority metadata.
     /// Parsed from `TURN_SERVERS` env (see `parse_turn_servers`).
-    /// Consumed by `TurnPool` in Task 2.4 — until then the field is
-    /// read-only and the existing `turn_urls` still drives the handler.
-    #[allow(dead_code)] // used by Task 2.4
+    /// Consumed by `TurnPool` in `main.rs` to drive the probe loop.
     pub turn_servers: Vec<TurnServerCfg>,
-    #[allow(dead_code)] // used by Task 2.3
     pub turn_probe_interval_secs: u64,
-    #[allow(dead_code)] // used by Task 2.3
     pub turn_unhealthy_after_fails: u32,
     pub stun_urls: Vec<String>,
     pub cors_origins: Vec<String>,

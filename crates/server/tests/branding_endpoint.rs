@@ -2,6 +2,7 @@
 
 use axum_test::TestServer;
 use oxpulse_chat::router::{build_router, AppState};
+use oxpulse_chat::turn_pool::TurnPool;
 use oxpulse_signaling::Rooms;
 
 fn test_state() -> AppState {
@@ -11,6 +12,7 @@ fn test_state() -> AppState {
         turn_urls: vec![],
         stun_urls: vec![],
         pool: None,
+        turn_pool: TurnPool::new(vec![]),
     }
 }
 

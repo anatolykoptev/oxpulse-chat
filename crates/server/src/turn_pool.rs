@@ -1,3 +1,10 @@
+//! In-memory TURN server pool with per-server health flags.
+//!
+//! This module owns ONLY the state container: `TurnServer`, `TurnPool`,
+//! accessors (`healthy`, `all`, `len`). The background probe worker that
+//! mutates those atomics lives in [`crate::turn_probe_loop`] to keep this
+//! file focused on data rather than I/O.
+
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -6,7 +13,7 @@ use crate::config::TurnServerCfg;
 /// A single TURN server tracked by the pool.
 ///
 /// `healthy` starts `true` (optimistic) and is flipped to `false` by the
-/// probe task (Task 2.3) after `unhealthy_after_fails` consecutive failures.
+/// probe task after `unhealthy_after_fails` consecutive failures.
 pub struct TurnServer {
     pub cfg: TurnServerCfg,
     pub healthy: AtomicBool,
@@ -41,7 +48,7 @@ impl TurnServer {
 /// `ArcSwap` for hot-reload.
 #[derive(Clone)]
 pub struct TurnPool {
-    servers: Arc<Vec<Arc<TurnServer>>>,
+    pub(crate) servers: Arc<Vec<Arc<TurnServer>>>,
 }
 
 impl TurnPool {
@@ -88,7 +95,6 @@ impl TurnPool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::TurnServerCfg;
 
     fn cfg(region: &str, priority: i32, url: &str) -> TurnServerCfg {
         TurnServerCfg {

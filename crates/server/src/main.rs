@@ -36,12 +36,19 @@ async fn main() {
         None
     };
 
+    let turn_pool = oxpulse_chat::turn_pool::TurnPool::new(config.turn_servers.clone());
+    turn_pool.start_probe_task(
+        std::time::Duration::from_secs(config.turn_probe_interval_secs),
+        config.turn_unhealthy_after_fails,
+    );
+
     let state = AppState {
         rooms,
         turn_secret: config.turn_secret,
         turn_urls: config.turn_urls,
         stun_urls: config.stun_urls,
         pool,
+        turn_pool,
     };
 
     let cors = build_cors(&config.cors_origins);

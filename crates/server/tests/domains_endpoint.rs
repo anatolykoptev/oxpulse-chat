@@ -2,6 +2,7 @@
 
 use axum_test::TestServer;
 use oxpulse_chat::router::{build_router, AppState};
+use oxpulse_chat::turn_pool::TurnPool;
 use oxpulse_signaling::Rooms;
 
 fn test_state() -> AppState {
@@ -11,6 +12,7 @@ fn test_state() -> AppState {
         turn_urls: vec![],
         stun_urls: vec![],
         pool: None,
+        turn_pool: TurnPool::new(vec![]),
     }
 }
 
@@ -37,10 +39,7 @@ async fn domains_rvpn_host_returns_correct_primary_and_mirrors() {
     assert_eq!(body["config_version"], 1);
 
     let mirrors = body["mirrors"].as_array().expect("mirrors must be array");
-    let mirror_strs: Vec<&str> = mirrors
-        .iter()
-        .filter_map(|v| v.as_str())
-        .collect();
+    let mirror_strs: Vec<&str> = mirrors.iter().filter_map(|v| v.as_str()).collect();
 
     assert!(
         mirror_strs.contains(&"call1.rvpn.online"),

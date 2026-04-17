@@ -29,6 +29,7 @@ impl TestApp {
             turn_urls: vec!["turn:test:3478".into()],
             stun_urls: vec!["stun:stun.l.google.com:19302".into()],
             pool: None,
+            turn_pool: oxpulse_chat::turn_pool::TurnPool::new(vec![]),
         };
 
         let router = oxpulse_chat::router::build_router(state, "/nonexistent");

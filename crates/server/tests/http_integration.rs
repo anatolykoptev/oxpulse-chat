@@ -11,6 +11,7 @@
 
 use axum_test::TestServer;
 use oxpulse_chat::router::{build_router, AppState};
+use oxpulse_chat::turn_pool::TurnPool;
 use oxpulse_signaling::Rooms;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Row;
@@ -25,6 +26,7 @@ fn test_state() -> AppState {
         turn_urls: vec![],
         stun_urls: vec![],
         pool: None,
+        turn_pool: TurnPool::new(vec![]),
     }
 }
 
@@ -213,7 +215,9 @@ async fn room_link_preview_returns_html_not_404() {
     let ct = res
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
-        .unwrap_or_else(|| panic!("content-type header missing on {url} — was 404 without type the bug"))
+        .unwrap_or_else(|| {
+            panic!("content-type header missing on {url} — was 404 without type the bug")
+        })
         .to_str()
         .expect("content-type is not valid ASCII")
         .to_lowercase();
