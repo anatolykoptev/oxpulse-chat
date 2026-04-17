@@ -71,6 +71,11 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
         .route("/api/health", get(health))
         .route("/api/branding", get(crate::branding::handler))
         .route("/api/domains", get(crate::domains::handler))
+        // `/` serves the root SPA index — must go through `spa_fallback`
+        // so __BRANDING_*__ placeholders are rendered per-host. Without this
+        // explicit route, ServeDir would serve the raw index.html file with
+        // unrendered placeholders.
+        .route("/", get(spa_fallback))
         .nest("/_app/immutable", immutable)
         .nest("/fonts", fonts)
         .fallback_service(static_dir)
