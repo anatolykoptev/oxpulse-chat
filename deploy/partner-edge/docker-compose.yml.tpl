@@ -1,0 +1,82 @@
+# Rendered by install.sh → /etc/oxpulse-partner-edge/docker-compose.yml
+# DO NOT EDIT DIRECTLY — regenerated on reinstall / upgrade.
+#
+# Placeholders (all substituted at install time):
+#   {{PARTNER_ID}} {{PARTNER_DOMAIN}} {{BACKEND_ENDPOINT}}
+#   {{TURN_SECRET}} {{REALITY_UUID}} {{REALITY_PUBLIC_KEY}} {{REALITY_SHORT_ID}}
+#   {{REALITY_SERVER_NAME}} {{PUBLIC_IP}} {{PRIVATE_IP}} {{IMAGE_VERSION}}
+
+name: oxpulse-partner-edge
+
+services:
+  caddy:
+    image: ghcr.io/anatolykoptev/oxpulse-partner-edge-caddy:{{IMAGE_VERSION}}
+    container_name: oxpulse-partner-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"          # HTTP/3 (QUIC)
+    environment:
+      PARTNER_DOMAIN: "{{PARTNER_DOMAIN}}"
+      PARTNER_ID: "{{PARTNER_ID}}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      xray-client:
+        condition: service_started
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--header=Host: localhost", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  xray-client:
+    image: ghcr.io/anatolykoptev/oxpulse-partner-edge-xray:{{IMAGE_VERSION}}
+    container_name: oxpulse-partner-xray
+    restart: unless-stopped
+    volumes:
+      - ./xray-client.json:/etc/xray/config.json:ro
+    networks:
+      - edge
+    # xray dokodemo-door on :3080 reachable only via docker network
+    expose:
+      - "3080"
+    healthcheck:
+      test: ["CMD-SHELL", "ss -ltn | grep -q ':3080' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  coturn:
+    image: ghcr.io/anatolykoptev/oxpulse-partner-edge-coturn:{{IMAGE_VERSION}}
+    container_name: oxpulse-partner-coturn
+    restart: unless-stopped
+    network_mode: host        # TURN needs real public IP + UDP relay ports
+    environment:
+      TURN_SECRET: "{{TURN_SECRET}}"
+      REALM: "{{PARTNER_DOMAIN}}"
+      PUBLIC_IPV4: "{{PUBLIC_IP}}"
+      PRIVATE_IPV4: "{{PRIVATE_IP}}"
+      PARTNER_ID: "{{PARTNER_ID}}"
+    volumes:
+      - ./coturn.conf:/etc/coturn/turnserver.conf:ro
+      - coturn-log:/var/log/turnserver
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep turnserver >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  caddy-data:
+  caddy-config:
+  coturn-log:
+
+networks:
+  edge:
+    driver: bridge

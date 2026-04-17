@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1.7
+# Partner-agnostic Caddy image. Caddyfile is bind-mounted at runtime; nothing
+# partner-specific is baked here. Label-based versioning so upgrade.sh can
+# detect the running tag.
+FROM caddy:2.8-alpine
+
+ARG VERSION=dev
+LABEL org.opencontainers.image.source="https://github.com/anatolykoptev/oxpulse-chat"
+LABEL org.opencontainers.image.description="OxPulse partner-edge Caddy — TLS + reverse-proxy + SPA CDN"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL oxpulse.component="partner-edge-caddy"
+LABEL oxpulse.version="${VERSION}"
+
+# Ensure wget is present for healthcheck in compose file.
+RUN apk add --no-cache wget
+
+EXPOSE 80 443 443/udp
+
+# Caddy's built-in entrypoint reads /etc/caddy/Caddyfile by default.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:2019/config/ >/dev/null 2>&1 || exit 1
