@@ -1,0 +1,16 @@
+{
+  "partner_id": "oxpulse",
+  "domains": ["oxpulse.chat", "www.oxpulse.chat", "localhost"],
+  "display_name": "OxPulse",
+  "description": "Secure, free video calls for everyone",
+  "logo": { "light": "/logo-light.svg", "dark": "/logo-dark.svg" },
+  "favicon": "/favicon.ico",
+  "og_image": "/og-image.png",
+  "colors": { "primary": "#0066FF", "secondary": "#1E293B", "accent": null },
+  "copy": {
+    "hero_title_ru": "Безопасные видеозвонки",
+    "hero_title_en": "Secure video calls"
+  },
+  "affiliate": null,
+  "legal": null
+}

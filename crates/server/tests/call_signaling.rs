@@ -138,7 +138,7 @@ async fn test_turn_credentials_endpoint() {
 
     let client = reqwest::Client::new();
     let resp = client
-        .post(&app.http_url("/api/turn-credentials"))
+        .post(app.http_url("/api/turn-credentials"))
         .send()
         .await
         .unwrap();
