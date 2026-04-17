@@ -2,6 +2,14 @@ use super::*;
 use super::render::{primary_canonical, absolute_asset_url};
 
 #[test]
+fn partner_configs_resolve() {
+    assert_eq!(resolve_by_host("call.piter.now").partner_id, "piter");
+    assert_eq!(resolve_by_host("call.rvpn.online").partner_id, "rvpn");
+    assert_eq!(resolve_by_host("call1.rvpn.online").partner_id, "rvpn");
+    assert_eq!(resolve_by_host("oxpulse.chat").partner_id, "oxpulse");
+}
+
+#[test]
 fn resolve_known_host_returns_matching_config() {
     let cfg = resolve_by_host("oxpulse.chat");
     assert_eq!(cfg.partner_id, "oxpulse");

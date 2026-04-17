@@ -68,7 +68,10 @@ pub struct BrandingConfig {
 /// Malformed JSON is a programmer error — panic loudly with the file path so
 /// it is caught before the service ever handles a request (see `init()`).
 pub(crate) static BRANDINGS: LazyLock<Vec<BrandingConfig>> = LazyLock::new(|| {
-    let mut files: Vec<_> = PARTNERS_DIR.files().collect();
+    let mut files: Vec<_> = PARTNERS_DIR
+        .files()
+        .filter(|f| f.path().extension().and_then(|e| e.to_str()) == Some("json"))
+        .collect();
     files.sort_by_key(|f| f.path());
 
     files

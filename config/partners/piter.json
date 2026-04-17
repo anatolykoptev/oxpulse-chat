@@ -1,0 +1,27 @@
+{
+  "partner_id": "piter",
+  "domains": ["call.piter.now"],
+  "display_name": "Piter Calls",
+  "description": "Безопасные видеозвонки — зеркало OxPulse на piter.now",
+  "logo": {
+    "light": "/partners/piter/logo-light.svg",
+    "dark": "/partners/piter/logo-dark.svg"
+  },
+  "favicon": "/partners/piter/favicon.svg",
+  "og_image": "/partners/piter/og-image.png",
+  "colors": {
+    "primary": "#E30613",
+    "secondary": "#0A2C5E",
+    "accent": "#F5A623"
+  },
+  "copy": {
+    "hero_title_ru": "Видеозвонки от Piter",
+    "hero_title_en": "Piter Video Calls"
+  },
+  "affiliate": null,
+  "legal": {
+    "partner_entity": "OxPulse (piter.now mirror)",
+    "partner_country": "RU",
+    "partner_contact": "hello@piter.now"
+  }
+}

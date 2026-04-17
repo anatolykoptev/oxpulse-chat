@@ -1,0 +1,28 @@
+{
+  "$schema_comment": "Schema template for new partners. Copy this file, rename to <partner_id>.json, fill in all fields. See README.md for field descriptions.",
+  "partner_id": "template",
+  "domains": [],
+  "display_name": "Partner Name",
+  "description": "Short description shown in meta tags and OG previews",
+  "logo": {
+    "light": "/partners/template/logo-light.svg",
+    "dark": "/partners/template/logo-dark.svg"
+  },
+  "favicon": "/partners/template/favicon.svg",
+  "og_image": "/partners/template/og-image.png",
+  "colors": {
+    "primary": "#0066FF",
+    "secondary": "#1E293B",
+    "accent": null
+  },
+  "copy": {
+    "hero_title_ru": "Заголовок на русском",
+    "hero_title_en": "Title in English"
+  },
+  "affiliate": null,
+  "legal": {
+    "partner_entity": "Partner Legal Entity Name",
+    "partner_country": "RU",
+    "partner_contact": "contact@partner.example"
+  }
+}

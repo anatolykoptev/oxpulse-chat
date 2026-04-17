@@ -1,0 +1,31 @@
+{
+  "partner_id": "rvpn",
+  "domains": ["call.rvpn.online", "call1.rvpn.online", "call2.rvpn.online"],
+  "display_name": "RVPN Calls",
+  "description": "Secure video calls by RVPN — free, no account, end-to-end encrypted",
+  "logo": {
+    "light": "/partners/rvpn/logo-light.svg",
+    "dark": "/partners/rvpn/logo-dark.svg"
+  },
+  "favicon": "/partners/rvpn/favicon.svg",
+  "og_image": "/partners/rvpn/og-image.png",
+  "colors": {
+    "primary": "#2563EB",
+    "secondary": "#0F172A",
+    "accent": "#22C55E"
+  },
+  "copy": {
+    "hero_title_ru": "Безопасные звонки от RVPN",
+    "hero_title_en": "Secure calls by RVPN"
+  },
+  "affiliate": {
+    "vpn_cta_url": "https://rvpn.online/?ref=oxpulse&utm_source=oxpulse&utm_medium=call_banner",
+    "vpn_cta_text_ru": "Попробовать RVPN VPN",
+    "vpn_cta_text_en": "Try RVPN VPN"
+  },
+  "legal": {
+    "partner_entity": "RVPN (provisional — pending formal agreement)",
+    "partner_country": "unknown",
+    "partner_contact": "partnerships@oxpulse.chat"
+  }
+}
