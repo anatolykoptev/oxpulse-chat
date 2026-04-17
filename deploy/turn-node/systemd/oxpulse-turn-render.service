@@ -1,0 +1,17 @@
+[Unit]
+Description=oxpulse-chat — render /etc/turnserver.conf from /etc/default/oxpulse-turn
+Documentation=https://github.com/anatolykoptev/oxpulse-chat/tree/main/deploy/turn-node
+ConditionPathExists=/etc/default/oxpulse-turn
+Before=coturn.service
+DefaultDependencies=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/local/sbin/oxpulse-turn-render
+# If rendering fails, coturn won't start (drop-in below makes it a hard dep).
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
