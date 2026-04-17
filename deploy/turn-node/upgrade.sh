@@ -28,7 +28,7 @@ for arg in "$@"; do
 done
 
 resolve_latest() {
-  curl -fsSL "https://api.github.com/repos/${REPO_SLUG}/releases" \
+  curl -fsSL --proto '=https' --tlsv1.2 "https://api.github.com/repos/${REPO_SLUG}/releases" \
     | grep -oE '"tag_name":\s*"turn-node-v[0-9]+\.[0-9]+\.[0-9]+"' \
     | head -1 \
     | sed -E 's/.*"(turn-node-v[0-9.]+)".*/\1/'
@@ -56,8 +56,8 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 base="https://github.com/${REPO_SLUG}/releases/download/${TARGET}"
 log "downloading ${TARGET} tarball + SHA256SUMS"
-curl -fsSL "${base}/turn-node-${VERSION}.tar.gz" -o "$work/tarball.tgz"
-curl -fsSL "${base}/SHA256SUMS"                  -o "$work/SHA256SUMS"
+curl -fsSL --proto '=https' --tlsv1.2 "${base}/turn-node-${VERSION}.tar.gz" -o "$work/tarball.tgz"
+curl -fsSL --proto '=https' --tlsv1.2 "${base}/SHA256SUMS"                  -o "$work/SHA256SUMS"
 
 ( cd "$work" && grep " turn-node-${VERSION}.tar.gz$" SHA256SUMS \
   | awk -v f=tarball.tgz '{print $1"  "f}' | sha256sum -c - ) \
@@ -72,14 +72,47 @@ stage="$work/turn-node-${VERSION}"
 # ---- backup current ----
 install -d -m 0700 "$BACKUP_DIR"
 ts=$(date -u +%Y%m%dT%H%M%SZ)
+backup=""
 if [[ -d "$PREFIX_SHARE" && "$current" != "none" ]]; then
   backup="$BACKUP_DIR/turn-node-${current}-${ts}"
   log "backing up to $backup"
-  cp -a "$PREFIX_SHARE" "$backup"
-  cp -a "$PREFIX_SBIN/oxpulse-turn-render" "$backup/" 2>/dev/null || true
-  cp -a "$PREFIX_SBIN/oxpulse-turn-healthcheck" "$backup/" 2>/dev/null || true
-  cp -a "$PREFIX_SBIN/oxpulse-turn-upgrade" "$backup/" 2>/dev/null || true
+  install -d -m 0700 "$backup"
+  cp -a "$PREFIX_SHARE" "$backup/share"
+  install -d -m 0755 "$backup/sbin"
+  for bin in oxpulse-turn-render oxpulse-turn-healthcheck oxpulse-turn-upgrade; do
+    [[ -f "$PREFIX_SBIN/$bin" ]] && cp -a "$PREFIX_SBIN/$bin" "$backup/sbin/$bin"
+  done
+  install -d -m 0755 "$backup/systemd"
+  for u in oxpulse-turn-render.service oxpulse-turn-upgrade.service oxpulse-turn-upgrade.timer; do
+    [[ -f "/etc/systemd/system/$u" ]] && cp -a "/etc/systemd/system/$u" "$backup/systemd/$u"
+  done
+  [[ -f "/etc/systemd/system/coturn.service.d/override.conf" ]] \
+    && cp -a "/etc/systemd/system/coturn.service.d/override.conf" "$backup/systemd/coturn-override.conf"
 fi
+
+# ---- rollback helper ----
+_rollback_from_backup() {
+  [[ -z "${backup:-}" || ! -d "$backup" ]] && { warn "no backup available — cannot restore"; return 1; }
+  # Restore share prefix atomically
+  if [[ -d "$backup/share" ]]; then
+    rm -rf "$PREFIX_SHARE"
+    cp -a "$backup/share" "$PREFIX_SHARE"
+  fi
+  # Restore binaries
+  for bin in oxpulse-turn-render oxpulse-turn-healthcheck oxpulse-turn-upgrade; do
+    [[ -f "$backup/sbin/$bin" ]] && cp -a "$backup/sbin/$bin" "$PREFIX_SBIN/$bin"
+  done
+  # Restore systemd units
+  for u in oxpulse-turn-render.service oxpulse-turn-upgrade.service oxpulse-turn-upgrade.timer; do
+    [[ -f "$backup/systemd/$u" ]] && cp -a "$backup/systemd/$u" "/etc/systemd/system/$u"
+  done
+  if [[ -f "$backup/systemd/coturn-override.conf" ]]; then
+    install -d -m 0755 /etc/systemd/system/coturn.service.d
+    cp -a "$backup/systemd/coturn-override.conf" "/etc/systemd/system/coturn.service.d/override.conf"
+  fi
+  systemctl daemon-reload
+  return 0
+}
 
 # ---- apply (delegates to install.sh --files-only) ----
 log "applying new artifacts"
@@ -93,17 +126,23 @@ echo "$VERSION" > "$PREFIX_SHARE/VERSION"
 log "restarting coturn"
 if ! systemctl restart coturn; then
   warn "restart failed — rolling back"
-  # shellcheck disable=SC2015  # A&&B||C intentional: best-effort restore, continue to die
-  [[ -n "${backup:-}" ]] && cp -a "$backup"/* "$PREFIX_SHARE"/ || true
-  systemctl restart coturn || die "rollback also failed — manual recovery required"
-  die "upgrade rolled back"
+  if _rollback_from_backup; then
+    systemctl restart coturn || die "rollback also failed — manual recovery required"
+    die "upgrade rolled back"
+  else
+    die "no backup to restore from; upgrade state is inconsistent — manual recovery required"
+  fi
 fi
 
 sleep 2
 if ! "$PREFIX_SBIN/oxpulse-turn-healthcheck"; then
   warn "healthcheck failed — rolling back"
-  [[ -n "${backup:-}" ]] && cp -a "$backup"/* "$PREFIX_SHARE"/ && systemctl restart coturn
-  die "upgrade rolled back due to post-upgrade healthcheck failure"
+  if _rollback_from_backup; then
+    systemctl restart coturn || die "rollback restart also failed — manual recovery required"
+    die "upgrade rolled back due to post-upgrade healthcheck failure"
+  else
+    die "no backup; upgrade state is inconsistent — manual recovery required"
+  fi
 fi
 
 log "upgraded to turn-node v${VERSION} successfully"
