@@ -31,10 +31,17 @@ pub fn render_index(template: &str, cfg: &BrandingConfig) -> String {
         .replace("__BRANDING_OG_IMAGE__", &absolute_asset_url(cfg, &cfg.og_image))
         .replace("__BRANDING_FAVICON__", &cfg.favicon)
         .replace("__BRANDING_PARTNER_ID__", &cfg.partner_id)
+        .replace(
+            "__BRANDING_CO_BRAND_PARTNER__",
+            cfg.co_brand_partner.as_deref().unwrap_or(""),
+        )
         .replace("__BRANDING_JSON__", &branding_json)
 }
 
 pub(crate) fn primary_canonical(cfg: &BrandingConfig) -> String {
+    if let Some(ref c) = cfg.canonical_override {
+        return c.clone();
+    }
     match cfg.domains.first() {
         Some(d) => format!("https://{}/", d),
         None => "/".to_string(),

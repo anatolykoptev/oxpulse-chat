@@ -8,7 +8,9 @@
 </script>
 
 <footer class="footer">
-  <span class="footer-copy">&copy; 2026 {$branding.site_name}</span>
+  <span class="footer-copy">
+    &copy; 2026 {$branding.site_name}{#if $branding.co_brand_partner}<span class="footer-partner"> · Powered by {$branding.co_brand_partner}</span>{/if}
+  </span>
   <p class="oss">Open Source · <a href="https://github.com/anatolykoptev/oxpulse-chat" target="_blank" rel="noopener">GitHub</a></p>
   <nav class="footer-links desktop-only">
     <a href="/privacy">{t.footerPrivacy}</a>
@@ -56,6 +58,11 @@
   }
 
   .footer-copy { white-space: nowrap; }
+
+  .footer-partner {
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 400;
+  }
 
   .oss {
     margin: 0;

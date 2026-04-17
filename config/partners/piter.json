@@ -1,7 +1,7 @@
 {
   "partner_id": "piter",
   "domains": ["call.piter.now"],
-  "display_name": "Piter Calls",
+  "display_name": "OxPulse",
   "description": "Безопасные видеозвонки — зеркало OxPulse на piter.now",
   "logo": {
     "light": "/partners/piter/logo-light.svg",
@@ -23,5 +23,7 @@
     "partner_entity": "OxPulse (piter.now mirror)",
     "partner_country": "RU",
     "partner_contact": "hello@piter.now"
-  }
+  },
+  "co_brand_partner": "Piter",
+  "canonical_override": "https://oxpulse.chat/"
 }

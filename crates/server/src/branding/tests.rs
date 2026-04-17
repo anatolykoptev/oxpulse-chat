@@ -66,6 +66,8 @@ fn test_cfg() -> BrandingConfig {
         copy: HashMap::new(),
         affiliate: None,
         legal: None,
+        co_brand_partner: None,
+        canonical_override: None,
     }
 }
 
@@ -148,4 +150,61 @@ fn absolute_asset_url_passes_through_absolute() {
     let cfg = test_cfg();
     let abs = "https://cdn.example.com/img.png";
     assert_eq!(absolute_asset_url(&cfg, abs), abs);
+}
+
+#[test]
+fn render_index_includes_co_brand_partner_when_present() {
+    let mut cfg = test_cfg();
+    cfg.co_brand_partner = Some("RVPN".to_string());
+    let html = "<span>__BRANDING_CO_BRAND_PARTNER__</span>";
+    let out = render_index(html, &cfg);
+    assert!(out.contains("RVPN"), "co-brand partner name must be injected");
+    assert!(!out.contains("__BRANDING_CO_BRAND_PARTNER__"), "placeholder substituted");
+}
+
+#[test]
+fn render_index_empty_co_brand_partner_when_absent() {
+    let cfg = test_cfg(); // co_brand_partner defaults to None
+    let html = "<span>[__BRANDING_CO_BRAND_PARTNER__]</span>";
+    let out = render_index(html, &cfg);
+    assert_eq!(out, "<span>[]</span>", "absent co-brand renders as empty string");
+}
+
+#[test]
+fn primary_canonical_uses_override_when_set() {
+    let mut cfg = test_cfg();
+    cfg.canonical_override = Some("https://oxpulse.chat/".to_string());
+    assert_eq!(primary_canonical(&cfg), "https://oxpulse.chat/");
+}
+
+#[test]
+fn primary_canonical_override_wins_over_domains() {
+    let mut cfg = test_cfg();
+    // domains[0] is "call.example.com" from test_cfg()
+    cfg.canonical_override = Some("https://oxpulse.chat/".to_string());
+    assert_eq!(primary_canonical(&cfg), "https://oxpulse.chat/");
+    assert_ne!(primary_canonical(&cfg), "https://call.example.com/");
+}
+
+#[test]
+fn branding_config_deserializes_without_new_optional_fields() {
+    // Back-compat: old configs missing co_brand_partner and canonical_override
+    // must still deserialize (serde(default) → None).
+    let json = r##"{
+        "partner_id": "legacy",
+        "domains": ["legacy.example.com"],
+        "display_name": "Legacy",
+        "description": "legacy",
+        "logo": { "light": "/l.svg", "dark": "/d.svg" },
+        "favicon": "/f.ico",
+        "og_image": "/og.png",
+        "colors": { "primary": "#000", "secondary": "#111", "accent": null },
+        "copy": {},
+        "affiliate": null,
+        "legal": null
+    }"##;
+    let cfg: BrandingConfig =
+        serde_json::from_str(json).expect("legacy JSON must still parse");
+    assert!(cfg.co_brand_partner.is_none());
+    assert!(cfg.canonical_override.is_none());
 }

@@ -20,6 +20,14 @@ export interface BrandingData {
 		vpn_cta_text_ru: string;
 		vpn_cta_text_en: string;
 	} | null;
+	/// Optional co-brand partner name. Null for the default OxPulse brand;
+	/// populated (e.g. "RVPN") on partner mirrors for "× Partner" mark and
+	/// "Powered by Partner" footer credit.
+	co_brand_partner: string | null;
+	/// Optional canonical URL override. When set, `canonical` and `og_url`
+	/// are set to this value instead of the per-host domain — used for
+	/// unified-brand SEO consolidation to oxpulse.chat.
+	canonical_override: string | null;
 }
 
 export function deriveFromHost(): BrandingData {
@@ -42,6 +50,8 @@ export function deriveFromHost(): BrandingData {
 		accent_color: null,
 		copy: {},
 		affiliate: null,
+		co_brand_partner: null,
+		canonical_override: null,
 	};
 }
 
@@ -63,13 +73,27 @@ export function fromBackend(raw: Record<string, unknown>): BrandingData {
 	const logo = raw.logo as { light?: string; dark?: string } | undefined;
 	const colors = raw.colors as { primary?: string; secondary?: string; accent?: string } | undefined;
 	const affiliate = raw.affiliate as BrandingData['affiliate'];
+	// Unified-brand SEO: if the backend set canonical_override (partner mirrors
+	// → https://oxpulse.chat/), use it for both canonical and og_url so that
+	// client-hydrated <svelte:head> matches the SSR-rendered meta tags. Without
+	// this, the <link rel="canonical"> silently flips back to the partner
+	// domain on hydration and undoes the SEO consolidation.
+	const canonicalOverrideRaw = raw.canonical_override;
+	const canonicalOverride =
+		typeof canonicalOverrideRaw === 'string' && canonicalOverrideRaw !== ''
+			? canonicalOverrideRaw
+			: null;
+	const canonical = canonicalOverride ?? `https://${firstDomain}/`;
+	const coBrandRaw = raw.co_brand_partner;
+	const coBrand =
+		typeof coBrandRaw === 'string' && coBrandRaw !== '' ? coBrandRaw : null;
 	return {
 		partner_id: partnerId,
 		title: displayName,
 		site_name: displayName,
 		description: raw.description as string,
-		canonical: `https://${firstDomain}/`,
-		og_url: `https://${firstDomain}/`,
+		canonical,
+		og_url: canonical,
 		og_image: rawOgImage.startsWith('http')
 			? rawOgImage
 			: `https://${firstDomain}${rawOgImage}`,
@@ -81,6 +105,8 @@ export function fromBackend(raw: Record<string, unknown>): BrandingData {
 		accent_color: colors?.accent ?? null,
 		copy: (raw.copy as Record<string, string>) ?? {},
 		affiliate: affiliate ?? null,
+		co_brand_partner: coBrand,
+		canonical_override: canonicalOverride,
 	};
 }
 

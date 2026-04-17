@@ -1,6 +1,6 @@
 {
   "partner_id": "oxpulse",
-  "domains": ["oxpulse.chat", "www.oxpulse.chat", "localhost"],
+  "domains": ["oxpulse.chat", "www.oxpulse.chat", "chat.krolik.run", "localhost"],
   "display_name": "OxPulse",
   "description": "Secure, free video calls for everyone",
   "logo": { "light": "/logo-light.svg", "dark": "/logo-dark.svg" },
@@ -12,5 +12,7 @@
     "hero_title_en": "Secure video calls"
   },
   "affiliate": null,
-  "legal": null
+  "legal": null,
+  "co_brand_partner": null,
+  "canonical_override": null
 }

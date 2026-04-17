@@ -35,6 +35,22 @@ unless you also update `mod.rs`.
 | `copy.hero_title_en` | string | English hero heading |
 | `affiliate` | object\|null | VPN CTA block: `vpn_cta_url`, `vpn_cta_text_ru`, `vpn_cta_text_en` |
 | `legal` | object\|null | `partner_entity`, `partner_country`, `partner_contact` |
+| `co_brand_partner` | string\|null | Co-brand partner name shown as "x Partner" next to the OxPulse wordmark and "Powered by Partner" in footer. `null` = default OxPulse brand (no co-brand). Unified-brand pattern: all partner mirrors render `display_name: "OxPulse"` with this field carrying the partner credit. |
+| `canonical_override` | string\|null | Absolute URL override for `<link rel="canonical">` / `og:url`. `null` = use `domains[0]`. Partner mirrors set this to `"https://oxpulse.chat/"` for SEO consolidation under the unified OxPulse brand. |
+
+## Unified-brand pattern (2026-04-17)
+
+Partner mirrors use unified branding — `display_name` is always `"OxPulse"`,
+and the partner receives credit through `co_brand_partner` (subtle "× RVPN"
+next to the wordmark, "Powered by RVPN" in footer) plus unchanged affiliate
+monetization. Canonical URLs consolidate to `oxpulse.chat` for SEO.
+Per-partner palette and OG assets remain distinct for entry-point
+differentiation.
+
+**Follow-up TODO:** unified OG image — currently each partner config still
+references `/partners/{id}/og-image.png`. Switching to a single `/og-image.png`
+with a small corner co-brand mark would further consolidate link previews
+across all 4 domains. Deferred pending design asset work.
 
 ## Asset path conventions
 

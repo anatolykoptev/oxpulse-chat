@@ -1,7 +1,7 @@
 {
   "partner_id": "rvpn",
   "domains": ["call.rvpn.online", "call1.rvpn.online", "call2.rvpn.online"],
-  "display_name": "RVPN Calls",
+  "display_name": "OxPulse",
   "description": "Secure video calls by RVPN — free, no account, end-to-end encrypted",
   "logo": {
     "light": "/partners/rvpn/logo-light.svg",
@@ -27,5 +27,7 @@
     "partner_entity": "RVPN (provisional — pending formal agreement)",
     "partner_country": "unknown",
     "partner_contact": "partnerships@oxpulse.chat"
-  }
+  },
+  "co_brand_partner": "RVPN",
+  "canonical_override": "https://oxpulse.chat/"
 }

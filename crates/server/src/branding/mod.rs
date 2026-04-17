@@ -61,6 +61,16 @@ pub struct BrandingConfig {
     pub copy: HashMap<String, String>,
     pub affiliate: Option<AffiliateConfig>,
     pub legal: Option<LegalConfig>,
+    /// Optional co-brand partner name shown as "Powered by X" in footer,
+    /// "x X" next to the main OxPulse wordmark in the hero. None for the
+    /// default OxPulse brand; Some("RVPN") for partner co-brand.
+    #[serde(default)]
+    pub co_brand_partner: Option<String>,
+    /// Override for the canonical URL. When set, overrides `domains[0]` in
+    /// `primary_canonical`. Used for unified-brand SEO consolidation: partner
+    /// mirrors should canonical-ize to oxpulse.chat, not their own domain.
+    #[serde(default)]
+    pub canonical_override: Option<String>,
 }
 
 /// All partner configs, parsed once at startup from the bundled JSON files.

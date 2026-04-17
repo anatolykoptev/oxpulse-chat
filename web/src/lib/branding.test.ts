@@ -23,6 +23,16 @@ describe('deriveFromHost', () => {
 		const b = deriveFromHost();
 		expect(b.affiliate).toBeNull();
 	});
+
+	it('co_brand_partner is null for default', () => {
+		const b = deriveFromHost();
+		expect(b.co_brand_partner).toBeNull();
+	});
+
+	it('canonical_override is null for default', () => {
+		const b = deriveFromHost();
+		expect(b.canonical_override).toBeNull();
+	});
 });
 
 describe('fromBackend', () => {
@@ -118,6 +128,33 @@ describe('fromBackend', () => {
 
 	it('throws on empty display_name', () => {
 		expect(() => fromBackend({ ...raw, display_name: '' })).toThrow(/display_name/);
+	});
+
+	it('maps co_brand_partner when present', () => {
+		const b = fromBackend({ ...raw, co_brand_partner: 'RVPN' });
+		expect(b.co_brand_partner).toBe('RVPN');
+	});
+
+	it('co_brand_partner is null when absent or empty', () => {
+		expect(fromBackend(raw).co_brand_partner).toBeNull();
+		expect(fromBackend({ ...raw, co_brand_partner: null }).co_brand_partner).toBeNull();
+		expect(fromBackend({ ...raw, co_brand_partner: '' }).co_brand_partner).toBeNull();
+	});
+
+	it('canonical_override overrides canonical and og_url', () => {
+		const b = fromBackend({ ...raw, canonical_override: 'https://oxpulse.chat/' });
+		expect(b.canonical).toBe('https://oxpulse.chat/');
+		expect(b.og_url).toBe('https://oxpulse.chat/');
+		expect(b.canonical_override).toBe('https://oxpulse.chat/');
+	});
+
+	it('canonical falls back to first domain when canonical_override is null or empty', () => {
+		const b1 = fromBackend({ ...raw, canonical_override: null });
+		expect(b1.canonical).toBe('https://call.rvpn.online/');
+		expect(b1.canonical_override).toBeNull();
+		const b2 = fromBackend({ ...raw, canonical_override: '' });
+		expect(b2.canonical).toBe('https://call.rvpn.online/');
+		expect(b2.canonical_override).toBeNull();
 	});
 
 	// Store fetch behavior: unit-test helpers only; store integration test

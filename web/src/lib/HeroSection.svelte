@@ -19,6 +19,9 @@
       <circle cx="12" cy="12" r="11" stroke="var(--accent)" stroke-width="0.5" opacity="0.2" />
     </svg>
     <span class="logo-text">{$branding.site_name}</span>
+    {#if $branding.co_brand_partner}
+      <span class="co-brand-partner">× {$branding.co_brand_partner}</span>
+    {/if}
   </div>
 
   <h1 class="hero-title">
@@ -58,6 +61,16 @@
     letter-spacing: 1.8px;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.9);
+  }
+
+  .co-brand-partner {
+    font-family: var(--font);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    margin-left: 4px;
   }
 
   .hero-title {

@@ -94,6 +94,8 @@ mod tests {
             copy: HashMap::new(),
             affiliate: None,
             legal: None,
+            co_brand_partner: None,
+            canonical_override: None,
         }
     }
 

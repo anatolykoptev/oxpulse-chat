@@ -2,7 +2,7 @@
   "$schema_comment": "Schema template for new partners. Copy this file, rename to <partner_id>.json, fill in all fields. See README.md for field descriptions.",
   "partner_id": "template",
   "domains": [],
-  "display_name": "Partner Name",
+  "display_name": "OxPulse",
   "description": "Short description shown in meta tags and OG previews",
   "logo": {
     "light": "/partners/template/logo-light.svg",
@@ -24,5 +24,9 @@
     "partner_entity": "Partner Legal Entity Name",
     "partner_country": "RU",
     "partner_contact": "contact@partner.example"
-  }
+  },
+  "$co_brand_partner_comment": "Partner display name for co-brand credit ('x Partner' in hero, 'Powered by Partner' in footer). null = no co-brand (default OxPulse). Example: \"RVPN\".",
+  "co_brand_partner": null,
+  "$canonical_override_comment": "Override canonical URL for SEO consolidation under unified OxPulse brand. null = use domains[0]. For partner mirrors set to \"https://oxpulse.chat/\".",
+  "canonical_override": null
 }
