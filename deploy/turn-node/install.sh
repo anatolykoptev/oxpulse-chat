@@ -70,7 +70,7 @@ install_packages() {
     if ! rpm -q epel-release >/dev/null 2>&1; then
       dnf install -y epel-release
     fi
-    dnf install -y coturn chrony gettext curl ca-certificates iproute
+    dnf install -y coturn coturn-utils chrony gettext curl ca-certificates iproute
   fi
 }
 if [[ $FILES_ONLY -eq 0 ]]; then
@@ -164,6 +164,11 @@ fi
 # ---------- 7. Enable + start (full install) or just daemon-reload (--files-only) ----------
 systemctl daemon-reload
 if [[ $FILES_ONLY -eq 0 ]]; then
+  # Ensure log/run dirs exist before the systemd service bind-mounts them
+  # (ProtectSystem=strict requires ReadWritePaths to exist on the host).
+  install -d -m 0750 -o coturn -g coturn /var/log/turnserver /var/run/turnserver 2>/dev/null || \
+    install -d -m 0750 /var/log/turnserver /var/run/turnserver
+
   systemctl enable --now oxpulse-turn-render.service
   systemctl enable --now coturn.service
   # Re-install bumps the config — force restart so new values are live.
