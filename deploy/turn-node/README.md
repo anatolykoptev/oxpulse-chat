@@ -11,10 +11,8 @@ AlmaLinux 9, Rocky Linux 9, CentOS Stream 9, RHEL 9.
 #    Minimum: 1 vCPU, 2 GB RAM, 20 GB disk.
 
 # 2. Run the installer (replace with your secret out-of-band):
-curl -fsSL https://raw.githubusercontent.com/anatolykoptev/oxpulse-chat/main/deploy/turn-node/install.sh \
-  | TURN_SECRET='<shared-secret-from-operator>' \
-    REGION='ru-msk' \
-    bash
+curl -fsSL https://github.com/anatolykoptev/oxpulse-chat/releases/latest/download/turn-node-installer.sh \
+  | TURN_SECRET='<shared-secret>' REGION='ru-msk' bash
 
 # 3. Verify:
 systemctl status coturn
@@ -51,6 +49,22 @@ later.
    /usr/local/sbin/oxpulse-turn-healthcheck
    ```
 5. Send the operator the registration line printed by the healthcheck.
+
+## Upgrading
+
+Pull + verify + apply the latest release:
+
+```bash
+oxpulse-turn-upgrade           # latest
+oxpulse-turn-upgrade --check   # check without applying (exit 10 if upgrade pending)
+oxpulse-turn-upgrade turn-node-v1.2.3   # pin to specific version
+```
+
+Enable nightly auto-check (opt-in — disabled by default):
+
+```bash
+systemctl enable --now oxpulse-turn-upgrade.timer
+```
 
 ## Uninstall
 
