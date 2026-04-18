@@ -6,7 +6,7 @@ use sqlx::PgPool;
 /// `schema_migrations`. SQL is split on `;` for execution — this is fine for
 /// DDL-only files; switch to a proper tokenizer (or `sqlx migrate`) when a
 /// migration includes PL/pgSQL blocks that contain semicolons.
-/// TODO: replace `;`-split with sqlx migrate when a 3rd migration lands.
+/// TODO: replace `;`-split with sqlx migrate when a PL/pgSQL block (BEGIN ... END; DO $$ ... $$) lands — current DDL-only migrations split cleanly on `;`.
 const MIGRATIONS: &[(&str, &str)] = &[
     (
         "001_analytics.sql",

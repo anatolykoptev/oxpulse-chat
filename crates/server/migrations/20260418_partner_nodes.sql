@@ -19,8 +19,6 @@ CREATE TABLE IF NOT EXISTS partner_nodes (
     UNIQUE (partner_id, domain)
 );
 
-CREATE INDEX IF NOT EXISTS idx_partner_nodes_partner
-    ON partner_nodes (partner_id);
-
+-- Supports stale-node GC queries (e.g. "nodes with last_seen_at < now() - interval '30 days'").
 CREATE INDEX IF NOT EXISTS idx_partner_nodes_last_seen
     ON partner_nodes (last_seen_at);
