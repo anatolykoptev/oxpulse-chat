@@ -51,6 +51,7 @@ REGISTRATION_TOKEN="$OXPULSE_REGISTRATION_TOKEN"
 # ---------- Reseed: teardown ----------
 if [[ $RESEED -eq 1 ]]; then
     log "reseed requested — stopping containers and removing sentinel"
+    systemctl disable --now oxpulse-partner-edge.service oxpulse-partner-cert-watch.path 2>/dev/null || true
     if [[ -f "$PREFIX_ETC/docker-compose.yml" ]]; then
         docker compose -f "$PREFIX_ETC/docker-compose.yml" down --remove-orphans 2>/dev/null || true
     fi
@@ -58,7 +59,8 @@ if [[ $RESEED -eq 1 ]]; then
 fi
 
 # ---------- Idempotency check ----------
-config_input="${PARTNER_DOMAIN}:${PARTNER_ID}:${IMAGE_VERSION}"
+# Token is included so that rotation triggers a re-hydrate without --reseed.
+config_input="${PARTNER_DOMAIN}:${PARTNER_ID}:${IMAGE_VERSION}:${REGISTRATION_TOKEN}"
 config_sha256=$(printf '%s' "$config_input" | sha256sum | awk '{print $1}')
 
 if [[ -f "$SENTINEL" ]]; then
@@ -161,25 +163,40 @@ tpl_file() {
     echo "$f"
 }
 
+# Escape sed-replacement metacharacters: \, &, and the delimiter |.
+sed_esc() {
+    printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+}
+
 render() {
     local src=$1 dst=$2
-    sed \
-        -e "s|{{PARTNER_ID}}|${PARTNER_ID}|g" \
-        -e "s|{{PARTNER_DOMAIN}}|${PARTNER_DOMAIN}|g" \
-        -e "s|{{BACKEND_ENDPOINT}}|${BACKEND_ENDPOINT}|g" \
-        -e "s|{{BACKEND_HOST}}|${BACKEND_HOST}|g" \
-        -e "s|{{BACKEND_PORT}}|${BACKEND_PORT}|g" \
-        -e "s|{{TURN_SECRET}}|${TURN_SECRET}|g" \
-        -e "s|{{REALITY_UUID}}|${REALITY_UUID}|g" \
-        -e "s|{{REALITY_PUBLIC_KEY}}|${REALITY_PUBLIC_KEY}|g" \
-        -e "s|{{REALITY_SHORT_ID}}|${REALITY_SHORT_ID}|g" \
-        -e "s|{{REALITY_SERVER_NAME}}|${REALITY_SERVER_NAME}|g" \
-        -e "s|{{PUBLIC_IP}}|${PUBLIC_IP}|g" \
-        -e "s|{{PRIVATE_IP}}|${PRIVATE_IP:-}|g" \
-        -e "s|{{EXTERNAL_IP_LINE}}|${EXTERNAL_IP_LINE}|g" \
-        -e "s|{{TURNS_SUBDOMAIN}}|${TURNS_SUBDOMAIN}|g" \
-        -e "s|{{IMAGE_VERSION}}|${IMAGE_VERSION}|g" \
-        "$src" > "$dst"
+    local tmp
+    tmp=$(mktemp)
+    cp "$src" "$tmp"
+    local key val safe
+    declare -A _vars=(
+        [PARTNER_ID]="${PARTNER_ID}"
+        [PARTNER_DOMAIN]="${PARTNER_DOMAIN}"
+        [BACKEND_ENDPOINT]="${BACKEND_ENDPOINT}"
+        [BACKEND_HOST]="${BACKEND_HOST}"
+        [BACKEND_PORT]="${BACKEND_PORT}"
+        [TURN_SECRET]="${TURN_SECRET}"
+        [REALITY_UUID]="${REALITY_UUID}"
+        [REALITY_PUBLIC_KEY]="${REALITY_PUBLIC_KEY}"
+        [REALITY_SHORT_ID]="${REALITY_SHORT_ID}"
+        [REALITY_SERVER_NAME]="${REALITY_SERVER_NAME}"
+        [PUBLIC_IP]="${PUBLIC_IP}"
+        [PRIVATE_IP]="${PRIVATE_IP:-}"
+        [EXTERNAL_IP_LINE]="${EXTERNAL_IP_LINE}"
+        [TURNS_SUBDOMAIN]="${TURNS_SUBDOMAIN}"
+        [IMAGE_VERSION]="${IMAGE_VERSION}"
+    )
+    for key in "${!_vars[@]}"; do
+        val="${_vars[$key]}"
+        safe=$(sed_esc "$val")
+        sed -i "s|{{${key}}}|${safe}|g" "$tmp"
+    done
+    mv "$tmp" "$dst"
     chmod 0600 "$dst"
 }
 
@@ -211,6 +228,9 @@ until [[ -f "$CERT_PATH" ]]; do
     if [[ $waited -ge 120 ]]; then
         die "ERROR: Caddy did not obtain TLS cert within 120s — check logs: docker compose -f $PREFIX_ETC/docker-compose.yml logs caddy"
     fi
+    if ! docker compose -f "$PREFIX_ETC/docker-compose.yml" ps --status running caddy 2>/dev/null | grep -q caddy; then
+        die "Caddy container is not running. Check: docker compose -f $PREFIX_ETC/docker-compose.yml logs caddy"
+    fi
     sleep 5
     waited=$((waited + 5))
 done
@@ -218,8 +238,10 @@ log "  TLS cert obtained after ${waited}s"
 
 # ---------- Step 7: enable systemd units ----------
 log "[7/7] enabling systemd units"
-systemctl enable --now oxpulse-partner-cert-watch.path || warn "cert-watch.path unit not found (Task 5.3 installs it)"
-systemctl enable --now oxpulse-partner-edge.service    || warn "partner-edge.service unit not found (Task 5.3 installs it)"
+systemctl enable --now oxpulse-partner-cert-watch.path \
+    || die "Failed to enable oxpulse-partner-cert-watch.path"
+systemctl enable --now oxpulse-partner-edge.service \
+    || die "Failed to enable oxpulse-partner-edge.service"
 
 # ---------- Write sentinel ----------
 hydrated_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

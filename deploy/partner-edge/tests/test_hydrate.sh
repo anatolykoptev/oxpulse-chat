@@ -38,4 +38,10 @@ if grep -E 'echo.*\$TURN_SECRET|log.*\$TURN_SECRET' "$SCRIPT" | grep -qv 'len=\$
     exit 1
 fi
 
+# 11: sed_esc helper exists and has the correct escape pattern.
+grep -qE 'sed_esc\s*\(\s*\)\s*\{' "$SCRIPT" \
+    || { echo "FAIL: sed_esc helper missing"; exit 1; }
+grep -qE "s/\[\\\\\\\\&\|\]/\\\\\\\\&/g" "$SCRIPT" \
+    || { echo "FAIL: sed_esc escape pattern missing"; exit 1; }
+
 echo "PASS: hydrate.sh structure OK"
