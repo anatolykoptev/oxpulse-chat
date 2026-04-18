@@ -1,0 +1,38 @@
+{
+    # Local CA — no ACME contact needed
+    local_certs
+    admin localhost:2019
+    servers {
+        protocols h1 h2
+    }
+}
+
+(l4_sni_demux) {
+    listener_wrappers {
+        layer4 {
+            @turns tls sni turns.example.test
+            route @turns {
+                proxy tcp/coturn.internal:5349
+            }
+        }
+        tls
+    }
+}
+
+example.test {
+    import l4_sni_demux
+    tls internal
+
+    header {
+        -Via
+        -Alt-Svc
+        -Server
+    }
+
+    respond "PoC app response OK" 200
+}
+
+turns.example.test {
+    tls internal
+    respond "This SNI is routed to coturn by caddy-l4. You should not see this." 421
+}
