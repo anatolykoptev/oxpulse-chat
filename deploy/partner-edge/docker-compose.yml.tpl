@@ -23,6 +23,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+      # Cover page for R1 Layer 2 active-probing defense (Task 3.1).
+      # Partners can override by mounting their own cover/ directory.
+      - ./cover:/srv/cover:ro
     depends_on:
       xray-client:
         condition: service_started

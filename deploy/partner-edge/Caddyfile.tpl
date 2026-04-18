@@ -51,37 +51,58 @@
         -Alt-Svc
     }
 
-    # Cache SvelteKit hashed assets for a year (immutable by filename hash).
-    @immutable path_regexp /_app/immutable/.*
-    header @immutable Cache-Control "public, max-age=31536000, immutable"
-
-    # API — preserve partner domain so backend branding resolver picks right config.
-    reverse_proxy /api/* xray-client:3080 {
-        header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
-        header_up X-Forwarded-Proto https
-        header_up Host oxpulse.chat
+    # R1 Layer 2 — Active-probing defense (design §5.3).
+    # Requests without a valid oxpulse session cookie or matching Origin
+    # header receive a generic cover page instead of the SPA. Makes the
+    # endpoint look like a dormant domain to automated DPI probers that
+    # would otherwise fingerprint the real app and flag the IP within
+    # ~20 seconds (Tor/Hetzner precedent, scratch/E §Active probing).
+    @probe {
+        not header Origin https://{{PARTNER_DOMAIN}}
+        not header Cookie *oxpulse_session=*
+        path /
+        method GET
+    }
+    handle @probe {
+        root * /srv/cover
+        rewrite * /cover.html
+        file_server
     }
 
-    # WebSocket — Caddy auto-upgrades on Upgrade: websocket.
-    reverse_proxy /ws/* xray-client:3080 {
-        header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
-        header_up X-Forwarded-Proto https
-        header_up Host oxpulse.chat
-    }
+    # All other paths/methods/authenticated → normal flow.
+    handle {
+        # Cache SvelteKit hashed assets for a year (immutable by filename hash).
+        @immutable path_regexp /_app/immutable/.*
+        header @immutable Cache-Control "public, max-age=31536000, immutable"
 
-    # Event telemetry.
-    reverse_proxy /events/* xray-client:3080 {
-        header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
-        header_up X-Forwarded-Proto https
-        header_up Host oxpulse.chat
-    }
+        # API — preserve partner domain so backend branding resolver picks right config.
+        reverse_proxy /api/* xray-client:3080 {
+            header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
+            header_up X-Forwarded-Proto https
+            header_up Host oxpulse.chat
+        }
 
-    # SPA fallback — everything else goes through the tunnel so backend can
-    # inject partner branding into index.html before shipping to browser.
-    reverse_proxy xray-client:3080 {
-        header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
-        header_up X-Forwarded-Proto https
-        header_up Host oxpulse.chat
+        # WebSocket — Caddy auto-upgrades on Upgrade: websocket.
+        reverse_proxy /ws/* xray-client:3080 {
+            header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
+            header_up X-Forwarded-Proto https
+            header_up Host oxpulse.chat
+        }
+
+        # Event telemetry.
+        reverse_proxy /events/* xray-client:3080 {
+            header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
+            header_up X-Forwarded-Proto https
+            header_up Host oxpulse.chat
+        }
+
+        # SPA fallback — everything else goes through the tunnel so backend can
+        # inject partner branding into index.html before shipping to browser.
+        reverse_proxy xray-client:3080 {
+            header_up X-Forwarded-Host {{PARTNER_DOMAIN}}
+            header_up X-Forwarded-Proto https
+            header_up Host oxpulse.chat
+        }
     }
 }
 
