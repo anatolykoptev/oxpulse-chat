@@ -185,6 +185,128 @@ sudo rm -rf /etc/oxpulse-partner-edge /var/lib/oxpulse-partner-edge \
 sudo systemctl daemon-reload
 ```
 
+## Snapshot-based scaling (slepok workflow)
+
+For partners scaling to N edge nodes via VM snapshots ("slepoks" — clones
+of a baked master image).
+
+### 1. Bake phase (run once on the master VM)
+
+Provision a fresh VM, install Docker, then run:
+
+```bash
+sudo bash install.sh --bake
+```
+
+`--bake` installs packages, pulls Docker images, and installs + enables the
+`oxpulse-partner-edge-hydrate.service` systemd unit — but does **not** write
+any secrets or start any containers. The VM is now a clean golden image.
+
+**Critical:** take the snapshot AFTER `--bake` completes but BEFORE hydration
+runs. If hydrate.sh has run (i.e., the sentinel
+`/var/lib/oxpulse-partner-edge/hydrated` exists), the snapshot will contain
+master-VM credentials and every clone will come up with the same
+`node_id`/`turn_secret`. Power off or halt the VM before snapshotting to be
+safe.
+
+### 2. Create the snapshot
+
+Use your cloud provider's snapshot facility on the baked VM:
+
+- **Hetzner Cloud**: Actions → Create snapshot in the server detail page, or
+  `hcloud server create-image --type snapshot`
+- **AWS EC2**: Actions → Image and templates → Create image
+- **DigitalOcean**: Power off → Snapshots tab → Take snapshot
+
+The snapshot name should encode the oxpulse version tag for traceability.
+
+### 3. Provision clones with cloud-init
+
+Each clone needs its own `OXPULSE_PARTNER_DOMAIN` and
+`OXPULSE_REGISTRATION_TOKEN` (one token per clone — see Token provisioning
+below). Copy `cloud-init.example.yaml`, fill in the per-clone values, and
+pass the result as `user_data` when launching from the snapshot.
+
+Before launching each clone, create a DNS A record:
+
+```
+callN.YOURPARTNER.example.com  →  <clone public IP>
+```
+
+hydrate.sh verifies DNS resolves to the clone's public IP before proceeding.
+Let's Encrypt HTTP-01 also requires the record to exist before cert issuance.
+
+### 4. First-boot flow
+
+On first boot, systemd reaches `multi-user.target` and fires
+`oxpulse-partner-edge-hydrate.service` (or cloud-init's explicit `systemctl
+start` shortens the latency). hydrate.sh:
+
+1. Loads `/etc/oxpulse-partner-edge/hydrate.env`
+2. Detects the VM's public IP
+3. Calls `/api/partner/register` with the registration token
+4. Receives `node_id`, `turn_secret`, Reality credentials, and `turns_subdomain`
+5. Renders config templates and writes them to `/etc/oxpulse-partner-edge/`
+6. Verifies DNS (`turns-XXX.callN.YOURPARTNER.example.com` → public IP)
+7. Starts containers via `docker compose up -d`
+8. Waits up to 120 s for Caddy to obtain the TLS cert
+9. Enables `oxpulse-partner-edge.service` and the cert-watch path unit
+10. Writes the sentinel `/var/lib/oxpulse-partner-edge/hydrated`
+
+### 5. Re-seeding (token rotation / manual recovery)
+
+To re-hydrate a clone (e.g., after rotating the registration token):
+
+1. Update `/etc/oxpulse-partner-edge/hydrate.env` with the new token.
+2. Run:
+
+```bash
+sudo /usr/local/sbin/hydrate.sh --reseed
+```
+
+`--reseed` stops containers, removes the sentinel, and runs the full
+hydration sequence again. The idempotency check will catch token changes even
+without `--reseed` (config hash mismatch triggers automatic re-hydration on
+the next service start).
+
+### 6. Troubleshooting
+
+**"already hydrated" but you need to re-hydrate**
+  The sentinel exists and the config hash matches. Use `--reseed` as above,
+  or manually `rm /var/lib/oxpulse-partner-edge/hydrated` and restart the
+  service.
+
+**DNS mismatch error**
+  hydrate.sh resolved `turns-XXX.callN.YOURPARTNER.example.com` to an address
+  that does not match the VM's public IP. Fix the A record and re-run
+  `hydrate.sh` (or `--reseed`). TTL-cached records may take a few minutes to
+  propagate.
+
+**ACME timeout (Caddy did not obtain TLS cert within 120s)**
+  Check that port 80 is open in the cloud provider's firewall and in any local
+  `ufw`/`firewalld` rules — Let's Encrypt HTTP-01 needs inbound TCP :80.
+  Also verify you have not exceeded Let's Encrypt rate limits (5 duplicate
+  certs per 7 days for the same FQDN). Caddy logs:
+  `docker compose -f /etc/oxpulse-partner-edge/docker-compose.yml logs caddy`
+
+**Service fails to start after hydration**
+  Check `journalctl -u oxpulse-partner-edge-hydrate.service` and
+  `journalctl -u oxpulse-partner-edge.service` for errors.
+
+### Token provisioning
+
+Each clone requires a unique bootstrap token (`ptkn_...`). Obtain N tokens
+from the OxPulse backend before launching clones:
+
+```
+POST /admin/partner/tokens/issue
+```
+
+TODO: link to token-issuance endpoint docs (not yet published).
+
+Tokens are single-use: once a clone has successfully registered and the
+backend has recorded its `node_id`, the token is invalidated.
+
 ## Support
 
 - GitHub issues: https://github.com/anatolykoptev/oxpulse-chat/issues
