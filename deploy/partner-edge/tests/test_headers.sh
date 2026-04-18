@@ -19,6 +19,18 @@ fi
 echo "PASS: no Via or Alt-Svc in response headers"
 
 # Also verify no UDP 443 listener (HTTP/3 dropped under ТСПУ hardening)
+
+# Skip UDP check if nmap isn't installed or we lack privileges — better to
+# SKIP than falsely PASS. nmap -sU requires root / CAP_NET_RAW.
+if ! command -v nmap >/dev/null 2>&1; then
+  echo "SKIP: nmap not installed — UDP 443 probe requires nmap" >&2
+  exit 0
+fi
+if [ "$(id -u)" != "0" ] && ! nmap --help 2>&1 | grep -q "unprivileged"; then
+  echo "SKIP: UDP 443 probe needs root (nmap -sU)" >&2
+  exit 0
+fi
+
 if timeout 5 nmap -sU -p 443 "${DOMAIN}" 2>/dev/null | grep -q '443/udp\s*open'; then
   echo "FAIL: UDP 443 listener detected (HTTP/3)" >&2
   exit 1

@@ -15,7 +15,7 @@ LABEL oxpulse.version="${VERSION}"
 # Ensure wget is present for healthcheck in compose file.
 RUN apk add --no-cache wget
 
-EXPOSE 80 443 443/udp
+EXPOSE 80 443
 
 # Caddy's built-in entrypoint reads /etc/caddy/Caddyfile by default.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
