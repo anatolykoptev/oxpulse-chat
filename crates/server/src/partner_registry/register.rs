@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::creds::{load_reality_from_env, short_random_hex};
+use super::creds::{assemble_reality_creds, load_reality_from_env, short_random_hex};
 use super::error::RegistrationError;
 
 /// Reality (VLESS / xray) credentials returned to the edge-node on success.
@@ -67,7 +67,7 @@ pub async fn register(
 ) -> Result<RegistrationOk, RegistrationError> {
     let token_hash = super::creds::hash_token(token);
 
-    let reality = load_reality_from_env()?;
+    let partial_reality = load_reality_from_env()?;
     let turn_secret =
         std::env::var("TURN_SECRET").map_err(|_| RegistrationError::TurnNotConfigured)?;
     if turn_secret.is_empty() {
@@ -151,6 +151,8 @@ pub async fn register(
     .await?;
 
     tx.commit().await?;
+
+    let reality = assemble_reality_creds(partial_reality, &node_id);
 
     Ok(RegistrationOk {
         node_id,
