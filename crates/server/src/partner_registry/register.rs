@@ -74,6 +74,18 @@ pub async fn register(
         return Err(RegistrationError::TurnNotConfigured);
     }
 
+    // Required: public host:port at which partner-edge xray-client dials krolik xray-reality.
+    // hydrate.sh splits on : — both parts must be present and non-empty.
+    let backend_endpoint =
+        std::env::var("PARTNER_BACKEND_ENDPOINT").map_err(|_| RegistrationError::BackendEndpointNotConfigured)?;
+    if backend_endpoint.is_empty()
+        || !backend_endpoint.contains(':')
+        || backend_endpoint.starts_with(':')
+        || backend_endpoint.ends_with(':')
+    {
+        return Err(RegistrationError::BackendEndpointNotConfigured);
+    }
+
     let mut tx = pool.begin().await?;
 
     let row: Option<TokenRow> = sqlx::query_as(
@@ -139,9 +151,6 @@ pub async fn register(
     .await?;
 
     tx.commit().await?;
-
-    let backend_endpoint = std::env::var("PARTNER_BACKEND_ENDPOINT")
-        .unwrap_or_else(|_| "reality://krolik-server:5349".to_string());
 
     Ok(RegistrationOk {
         node_id,

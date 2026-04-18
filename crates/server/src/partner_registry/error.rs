@@ -21,6 +21,8 @@ pub enum RegistrationError {
     RealityNotConfigured,
     #[error("turn secret not configured")]
     TurnNotConfigured,
+    #[error("partner backend endpoint not configured")]
+    BackendEndpointNotConfigured,
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -35,6 +37,7 @@ impl RegistrationError {
             Self::PartnerMismatch => "partner_mismatch",
             Self::RealityNotConfigured => "reality_not_configured",
             Self::TurnNotConfigured => "turn_not_configured",
+            Self::BackendEndpointNotConfigured => "backend_endpoint_not_configured",
             Self::Internal(_) => "internal_error",
         }
     }
@@ -42,7 +45,7 @@ impl RegistrationError {
     pub fn status(&self) -> StatusCode {
         match self {
             Self::TokenAlreadyUsed => StatusCode::CONFLICT,
-            Self::RealityNotConfigured | Self::TurnNotConfigured | Self::Internal(_) => {
+            Self::RealityNotConfigured | Self::TurnNotConfigured | Self::BackendEndpointNotConfigured | Self::Internal(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
             _ => StatusCode::FORBIDDEN,
@@ -78,6 +81,10 @@ mod tests {
             RegistrationError::RealityNotConfigured.status(),
             StatusCode::INTERNAL_SERVER_ERROR
         );
+        assert_eq!(
+            RegistrationError::BackendEndpointNotConfigured.status(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
     }
 
     #[test]
@@ -86,6 +93,10 @@ mod tests {
         assert_eq!(
             RegistrationError::PartnerMismatch.code(),
             "partner_mismatch"
+        );
+        assert_eq!(
+            RegistrationError::BackendEndpointNotConfigured.code(),
+            "backend_endpoint_not_configured"
         );
     }
 }
