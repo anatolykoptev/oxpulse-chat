@@ -168,3 +168,51 @@ async fn sorts_healthy_servers_by_priority_ascending() {
         "priority=0 must appear before priority=5, got urls: {urls:?}"
     );
 }
+
+#[tokio::test]
+async fn geo_hint_reorders_healthy_pool_by_region_prefix() {
+    // Pool: ru-spb (prio 0), de-fra (prio 0). Without a hint, stable sort by
+    // priority keeps source order. With X-Client-Region: ru, the ru-* entry
+    // must come first regardless.
+    let pool = TurnPool::new(vec![
+        TurnServerCfg {
+            url: "turn:ru-spb.example:3478".into(),
+            region: "ru-spb".into(),
+            priority: 0,
+        },
+        TurnServerCfg {
+            url: "turn:de-fra.example:3478".into(),
+            region: "de-fra".into(),
+            priority: 0,
+        },
+    ]);
+
+    let dir = common::spa_tempdir();
+    let state = AppState {
+        turn_secret: "test-secret".into(),
+        turn_urls: vec![],
+        turn_pool: pool,
+        ..common::base_state()
+    };
+    let server = TestServer::new(build_router(state, dir.path().to_str().unwrap()));
+
+    let body: serde_json::Value = server
+        .post("/api/turn-credentials")
+        .add_header("x-client-region", "ru")
+        .await
+        .json();
+    let urls = extract_urls(&body);
+
+    let ru_idx = urls
+        .iter()
+        .position(|u| u == "turn:ru-spb.example:3478")
+        .expect("ru-spb URL must appear");
+    let de_idx = urls
+        .iter()
+        .position(|u| u == "turn:de-fra.example:3478")
+        .expect("de-fra URL must appear");
+    assert!(
+        ru_idx < de_idx,
+        "region prefix match on X-Client-Region=ru must reorder ru-* before de-*, got: {urls:?}"
+    );
+}
