@@ -100,7 +100,7 @@ jobs:
           tar -czf "partner-edge-${VERSION}.tar.gz" \
             --transform "s,^deploy/partner-edge,partner-edge-${VERSION}," \
             deploy/partner-edge
-          cp deploy/partner-edge/install.sh     partner-edge-installer.sh
+          cp deploy/partner-edge/bootstrap.sh   partner-edge-installer.sh
           cp deploy/partner-edge/upgrade.sh     partner-edge-upgrade.sh
           cp deploy/partner-edge/healthcheck.sh partner-edge-healthcheck.sh
           sha256sum \
