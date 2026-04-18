@@ -32,6 +32,7 @@ rand = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 regex = "1"
+governor = "0.6"
 
 [dev-dependencies]
 axum-test = "20"

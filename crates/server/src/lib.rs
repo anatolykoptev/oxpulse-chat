@@ -4,6 +4,7 @@ pub mod config;
 pub mod domains;
 pub mod migrate;
 pub mod partner_registry;
+pub mod rate_limit;
 pub mod router;
 pub mod turn_pool;
 pub mod turn_probe;
