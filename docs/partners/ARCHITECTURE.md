@@ -392,9 +392,9 @@ Three layers:
 3. Remove the partner from `TURN_SERVERS` on the operator side. This
    rollback does not touch the partner VM; it is instant and safe.
 
-## 9. Bug history (v0.2.0 → v0.2.1)
+## 9. Bug history (v0.2.0 → v0.2.2)
 
-A textbook chain of six independent regressions — each safe in
+A textbook chain of seven independent regressions — each safe in
 isolation, collectively fatal:
 
 1. **`BACKEND_API` default = `https://api.oxpulse.chat`**, but that
@@ -431,10 +431,23 @@ isolation, collectively fatal:
    propagates this even though grep already matched. Fix: capture
    output to a tempfile, grep independently.
 
-Bug 5 was the cruelest: everything looked OK (containers healthy,
-certs issued), yet the TLS listener was silently absent.
+7. **coturn startup race with ACME** (found during v0.2.1 clean-install
+   retest). `docker compose up` brings coturn up before Caddy has
+   obtained the TURNS subdomain cert. coturn evaluates its cert/pkey
+   paths once at startup and silently disables the TLS listener if
+   they are missing. `cert-watch.path` only fires SIGUSR2 on renewal,
+   so the listener would stay disabled until the first Let's Encrypt
+   renewal months later. Fix in v0.2.2: `install.sh` polls the cert
+   path in the caddy-data volume for up to 180 s and, once the cert
+   appears, issues `docker compose restart coturn`.
 
-Diagnosis took six iterations; v0.2.1 closes all six in one commit.
+Bug 5 was the cruelest: everything looked OK (containers healthy,
+certs issued), yet the TLS listener was silently absent. Bug 7 was
+a close second — passed all unit and dry-run checks, only surfaced on
+the very first clean-VM install with real ACME timing.
+
+Diagnosis took seven iterations; v0.2.1 closed six bugs and v0.2.2
+closed the seventh.
 
 ## 10. Relationship to piter-server
 
@@ -481,4 +494,5 @@ significantly improves resilience against ТСПУ escalations in 2026+.
 ## 12. Document changelog
 
 - **2026-04-18** — first version after the v0.2.1 fix cycle (rvpn
-  launch). Describes the state as of the partner-edge-v0.2.1 release.
+  launch). Revised the same day to add bug #7 (coturn/ACME startup
+  race) and the v0.2.2 fix.
