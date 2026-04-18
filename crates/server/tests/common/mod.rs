@@ -3,6 +3,8 @@
 // this shared helper module.
 #![allow(dead_code)]
 
+pub mod partner;
+
 use std::net::SocketAddr;
 use std::time::Duration;
 

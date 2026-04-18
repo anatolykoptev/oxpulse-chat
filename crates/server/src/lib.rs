@@ -3,6 +3,7 @@ pub mod branding;
 pub mod config;
 pub mod domains;
 pub mod migrate;
+pub mod partner_registry;
 pub mod router;
 pub mod turn_pool;
 pub mod turn_probe;
