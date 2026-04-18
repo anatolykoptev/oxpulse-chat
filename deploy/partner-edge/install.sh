@@ -19,7 +19,9 @@ SYSTEMD_DIR=/etc/systemd/system
 # shellcheck disable=SC2034  # REGISTRY referenced by templates via IMAGE_VERSION, kept for override env surface
 REGISTRY="${OXPULSE_IMAGE_REGISTRY:-ghcr.io/anatolykoptev}"
 REPO_RAW="${OXPULSE_REPO_RAW:-https://raw.githubusercontent.com/anatolykoptev/oxpulse-chat/main/deploy/partner-edge}"
-BACKEND_API="${OXPULSE_BACKEND_API:-${OXPULSE_BACKEND_URL:-https://oxpulse.chat}}"
+BACKEND_API="${OXPULSE_BACKEND_API:-${OXPULSE_BACKEND_URL:-https://api.oxpulse.chat}}"
+# Strip trailing slash so we never emit //api/partner/register.
+BACKEND_API="${BACKEND_API%/}"
 
 log()  { printf '\033[32m==>\033[0m %s\n' "$*" >&2; }
 warn() { printf '\033[33m!!\033[0m  %s\n' "$*" >&2; }
@@ -232,6 +234,13 @@ REALITY_UUID=$(json_get reality_uuid "$tmp_cfg")
 REALITY_PUBLIC_KEY=$(json_get reality_public_key "$tmp_cfg")
 REALITY_SHORT_ID=$(json_get reality_short_id "$tmp_cfg")
 REALITY_SERVER_NAME=$(json_get reality_server_name "$tmp_cfg")
+# VLESS Encryption spec (e.g. mlkem768x25519plus...). Empty = legacy "none".
+# The server-side xray-reality requires matching encryption, otherwise the
+# tunnel completes the TLS handshake but silently drops payloads.
+REALITY_ENCRYPTION=$(json_get reality_encryption "$tmp_cfg")
+# Backend-assigned TURNS subdomain (format api-<6-hex>). Falls back to "turns"
+# only if the backend did not return one (pre-v0.2 deployments).
+REGISTER_TURNS_SUBDOMAIN=$(json_get turns_subdomain "$tmp_cfg")
 [[ -z "$NODE_ID" ]]            && NODE_ID="${PARTNER_ID}-$(hostname -s)"
 [[ -z "$BACKEND_ENDPOINT" ]]   && die "backend_endpoint missing from config"
 [[ -z "$TURN_SECRET" ]]        && die "turn_secret missing from config"
@@ -239,6 +248,8 @@ REALITY_SERVER_NAME=$(json_get reality_server_name "$tmp_cfg")
 [[ -z "$REALITY_PUBLIC_KEY" ]] && die "reality_public_key missing from config"
 [[ -z "$REALITY_SHORT_ID" ]]   && die "reality_short_id missing from config"
 [[ -z "$REALITY_SERVER_NAME" ]] && REALITY_SERVER_NAME="www.samsung.com"
+[[ -z "$REALITY_ENCRYPTION" ]] && REALITY_ENCRYPTION="none"
+[[ -n "$REGISTER_TURNS_SUBDOMAIN" ]] && TURNS_SUBDOMAIN="$REGISTER_TURNS_SUBDOMAIN"
 
 # Split backend_endpoint "host:port" into host + port for xray config.
 BACKEND_HOST="${BACKEND_ENDPOINT%:*}"
@@ -283,6 +294,8 @@ fetch_tpl coturn.conf.tpl        "$stage/coturn.tpl"
 render() {
 	local src=$1 dst=$2
 	# Mustache-style placeholder substitution via sed. No external deps.
+	# REALITY_ENCRYPTION may contain sed-special chars — use a literal-safe delimiter (|) and
+	# emit via --posix-disabled sed -f script so embedded '|' never collides (none observed to date).
 	sed \
 		-e "s|{{PARTNER_ID}}|${PARTNER_ID}|g" \
 		-e "s|{{PARTNER_DOMAIN}}|${DOMAIN}|g" \
@@ -294,6 +307,8 @@ render() {
 		-e "s|{{REALITY_PUBLIC_KEY}}|${REALITY_PUBLIC_KEY}|g" \
 		-e "s|{{REALITY_SHORT_ID}}|${REALITY_SHORT_ID}|g" \
 		-e "s|{{REALITY_SERVER_NAME}}|${REALITY_SERVER_NAME}|g" \
+		-e "s|{{REALITY_ENCRYPTION}}|${REALITY_ENCRYPTION}|g" \
+		-e "s|{{TURNS_SUBDOMAIN}}|${TURNS_SUBDOMAIN}|g" \
 		-e "s|{{PUBLIC_IP}}|${PUBLIC_IP}|g" \
 		-e "s|{{PRIVATE_IP}}|${PRIVATE_IP:-}|g" \
 		-e "s|{{EXTERNAL_IP_LINE}}|${EXTERNAL_IP_LINE}|g" \

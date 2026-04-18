@@ -119,15 +119,24 @@ check "8. coturn secret matches config" bash -c '
 '
 
 # --- 9. TURNS on :443 — TLS handshake against turns-sub.DOMAIN ---
+# `pipefail` + `timeout N openssl | grep -q` is a trap: after the handshake
+# succeeds openssl blocks on the half-open socket until `timeout` kills it
+# with exit 124 — which pipefail then propagates even though grep already
+# matched. Capture openssl output to a file first, then grep independently.
 echo -n "9. TURNS-443 handshake: "
 if [ -z "${TURNS_SUBDOMAIN:-}" ]; then
 	echo "SKIP — TURNS_SUBDOMAIN not set in install.env (upgrade from v0.1.x?)"
-elif timeout 10 openssl s_client -connect "${TURNS_SUBDOMAIN}.${DOMAIN}:443" -servername "${TURNS_SUBDOMAIN}.${DOMAIN}" </dev/null 2>/dev/null \
-	| grep -q "Verify return code: 0 (ok)"; then
-	echo "PASS"
 else
-	echo "FAIL"
-	FAIL=$((FAIL + 1))
+	_handshake_out=$(mktemp)
+	timeout 10 openssl s_client -connect "${TURNS_SUBDOMAIN}.${DOMAIN}:443" \
+		-servername "${TURNS_SUBDOMAIN}.${DOMAIN}" </dev/null >"$_handshake_out" 2>/dev/null || true
+	if grep -q "Verify return code: 0 (ok)" "$_handshake_out"; then
+		echo "PASS"
+	else
+		echo "FAIL"
+		FAIL=$((FAIL + 1))
+	fi
+	rm -f "$_handshake_out"
 fi
 
 echo
