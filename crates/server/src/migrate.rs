@@ -16,6 +16,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "20260417_partner_tokens.sql",
         include_str!("../migrations/20260417_partner_tokens.sql"),
     ),
+    (
+        "20260418_partner_nodes.sql",
+        include_str!("../migrations/20260418_partner_nodes.sql"),
+    ),
 ];
 
 pub async fn run(pool: &PgPool) {
