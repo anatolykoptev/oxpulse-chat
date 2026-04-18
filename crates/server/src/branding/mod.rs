@@ -11,8 +11,7 @@ use std::sync::LazyLock;
 use include_dir::{include_dir, Dir};
 use serde::{Deserialize, Serialize};
 
-static PARTNERS_DIR: Dir<'_> =
-    include_dir!("$CARGO_MANIFEST_DIR/../../config/partners");
+static PARTNERS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../config/partners");
 
 /// Logo URLs for light and dark themes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,10 +158,10 @@ pub fn extract_host(headers: &axum::http::HeaderMap) -> String {
         .to_lowercase()
 }
 
-pub use render::render_index;
 pub use handler::handler;
+pub use render::render_index;
 
-pub(crate) mod render;
 pub(crate) mod handler;
+pub(crate) mod render;
 #[cfg(test)]
 mod tests;

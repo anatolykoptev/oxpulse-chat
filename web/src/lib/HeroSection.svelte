@@ -9,6 +9,13 @@
   const heroTitle = $derived(
     $branding.copy[`hero_title_${$locale}`] ?? t.heroTitle
   );
+
+  // Locale-aware partner wordmark: prefers copy.co_brand_partner_{locale},
+  // falls back to the plain string field. Allows e.g. PITER.NOW (en) /
+  // Питер Сегодня (ru) without changing the schema.
+  const coBrandPartnerLabel = $derived(
+    $branding.copy[`co_brand_partner_${$locale}`] ?? $branding.co_brand_partner
+  );
 </script>
 
 <header class="hero">
@@ -19,8 +26,8 @@
       <circle cx="12" cy="12" r="11" stroke="var(--accent)" stroke-width="0.5" opacity="0.2" />
     </svg>
     <span class="logo-text">{$branding.site_name}</span>
-    {#if $branding.co_brand_partner}
-      <span class="co-brand-partner">× {$branding.co_brand_partner}</span>
+    {#if coBrandPartnerLabel}
+      <span class="co-brand-partner">× {coBrandPartnerLabel}</span>
     {/if}
   </div>
 

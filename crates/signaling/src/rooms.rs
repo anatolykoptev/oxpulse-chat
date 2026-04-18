@@ -122,5 +122,4 @@ impl Rooms {
             .map(|r| !r.ended.swap(true, Ordering::SeqCst))
             .unwrap_or(false)
     }
-
 }

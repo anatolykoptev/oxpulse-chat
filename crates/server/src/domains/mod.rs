@@ -5,8 +5,8 @@
 
 pub mod chain;
 
-use axum::Json;
 use axum::http::HeaderMap;
+use axum::Json;
 use serde::Serialize;
 
 /// Response shape for GET /api/domains.

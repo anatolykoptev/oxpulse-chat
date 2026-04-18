@@ -120,7 +120,11 @@ mod tests {
         });
 
         let rtt = probe(addr, Duration::from_secs(1)).await.unwrap();
-        assert!(rtt < 1000, "RTT {}ms should be sub-second on localhost", rtt);
+        assert!(
+            rtt < 1000,
+            "RTT {}ms should be sub-second on localhost",
+            rtt
+        );
     }
 
     #[tokio::test]

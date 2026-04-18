@@ -1,5 +1,5 @@
+use super::render::{absolute_asset_url, primary_canonical};
 use super::*;
-use super::render::{primary_canonical, absolute_asset_url};
 
 #[test]
 fn partner_configs_resolve() {
@@ -86,8 +86,14 @@ fn render_index_substitutes_all_placeholders() {
     let out = render_index(html, &cfg);
     assert!(out.contains("TestPartner"), "title/site_name");
     assert!(out.contains("Secure calls"), "description");
-    assert!(out.contains("https://call.example.com/"), "canonical/og_url");
-    assert!(out.contains("https://call.example.com/og-image.png"), "og_image absolutized");
+    assert!(
+        out.contains("https://call.example.com/"),
+        "canonical/og_url"
+    );
+    assert!(
+        out.contains("https://call.example.com/og-image.png"),
+        "og_image absolutized"
+    );
     assert!(out.contains("/favicon.ico"), "favicon");
     assert!(out.contains("testpartner"), "partner_id");
     assert!(!out.contains("__BRANDING_"), "no leftover placeholders");
@@ -96,10 +102,14 @@ fn render_index_substitutes_all_placeholders() {
 #[test]
 fn render_index_injects_branding_json_script() {
     let cfg = test_cfg();
-    let html = "<script id=\"__branding_boot__\" type=\"application/json\">__BRANDING_JSON__</script>";
+    let html =
+        "<script id=\"__branding_boot__\" type=\"application/json\">__BRANDING_JSON__</script>";
     let out = render_index(html, &cfg);
     // Placeholder must be replaced
-    assert!(!out.contains("__BRANDING_JSON__"), "placeholder must be substituted");
+    assert!(
+        !out.contains("__BRANDING_JSON__"),
+        "placeholder must be substituted"
+    );
     // Extract the JSON from inside the script tag
     let start = out.find('>').expect("opening tag") + 1;
     let end = out.rfind('<').expect("closing tag");
@@ -158,8 +168,14 @@ fn render_index_includes_co_brand_partner_when_present() {
     cfg.co_brand_partner = Some("RVPN".to_string());
     let html = "<span>__BRANDING_CO_BRAND_PARTNER__</span>";
     let out = render_index(html, &cfg);
-    assert!(out.contains("RVPN"), "co-brand partner name must be injected");
-    assert!(!out.contains("__BRANDING_CO_BRAND_PARTNER__"), "placeholder substituted");
+    assert!(
+        out.contains("RVPN"),
+        "co-brand partner name must be injected"
+    );
+    assert!(
+        !out.contains("__BRANDING_CO_BRAND_PARTNER__"),
+        "placeholder substituted"
+    );
 }
 
 #[test]
@@ -167,7 +183,10 @@ fn render_index_empty_co_brand_partner_when_absent() {
     let cfg = test_cfg(); // co_brand_partner defaults to None
     let html = "<span>[__BRANDING_CO_BRAND_PARTNER__]</span>";
     let out = render_index(html, &cfg);
-    assert_eq!(out, "<span>[]</span>", "absent co-brand renders as empty string");
+    assert_eq!(
+        out, "<span>[]</span>",
+        "absent co-brand renders as empty string"
+    );
 }
 
 #[test]
@@ -203,8 +222,7 @@ fn branding_config_deserializes_without_new_optional_fields() {
         "affiliate": null,
         "legal": null
     }"##;
-    let cfg: BrandingConfig =
-        serde_json::from_str(json).expect("legacy JSON must still parse");
+    let cfg: BrandingConfig = serde_json::from_str(json).expect("legacy JSON must still parse");
     assert!(cfg.co_brand_partner.is_none());
     assert!(cfg.canonical_override.is_none());
 }

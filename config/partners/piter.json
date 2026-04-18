@@ -15,15 +15,17 @@
     "accent": "#ff6600"
   },
   "copy": {
-    "hero_title_ru": "Видеозвонки от Piter",
-    "hero_title_en": "Piter Video Calls"
+    "hero_title_ru": "Видеозвонки от Питер Сегодня",
+    "hero_title_en": "Video Calls by PITER.NOW",
+    "co_brand_partner_ru": "Питер Сегодня",
+    "co_brand_partner_en": "PITER.NOW"
   },
   "affiliate": null,
   "legal": {
-    "partner_entity": "OxPulse (piter.now mirror)",
+    "partner_entity": "OxPulse (PITER.NOW mirror)",
     "partner_country": "RU",
     "partner_contact": "hello@piter.now"
   },
-  "co_brand_partner": "Piter",
+  "co_brand_partner": "PITER.NOW",
   "canonical_override": "https://oxpulse.chat/"
 }

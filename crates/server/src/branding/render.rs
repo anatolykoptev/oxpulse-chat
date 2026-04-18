@@ -20,15 +20,17 @@ use super::BrandingConfig;
 /// primitive types — no maps with non-string keys, no floats). If for some
 /// reason serialization fails, a safe `{}` is substituted.
 pub fn render_index(template: &str, cfg: &BrandingConfig) -> String {
-    let branding_json =
-        serde_json::to_string(cfg).unwrap_or_else(|_| "{}".to_string());
+    let branding_json = serde_json::to_string(cfg).unwrap_or_else(|_| "{}".to_string());
     template
         .replace("__BRANDING_SITE_NAME__", &cfg.display_name)
         .replace("__BRANDING_TITLE__", &cfg.display_name)
         .replace("__BRANDING_DESCRIPTION__", &cfg.description)
         .replace("__BRANDING_CANONICAL__", &primary_canonical(cfg))
         .replace("__BRANDING_OG_URL__", &primary_canonical(cfg))
-        .replace("__BRANDING_OG_IMAGE__", &absolute_asset_url(cfg, &cfg.og_image))
+        .replace(
+            "__BRANDING_OG_IMAGE__",
+            &absolute_asset_url(cfg, &cfg.og_image),
+        )
         .replace("__BRANDING_FAVICON__", &cfg.favicon)
         .replace("__BRANDING_PARTNER_ID__", &cfg.partner_id)
         .replace(

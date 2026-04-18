@@ -1,15 +1,20 @@
 <script lang="ts">
   import type { Translations } from './i18n';
   import { branding } from '$lib/branding';
+  import { locale } from '$lib/i18n';
 
   let { t }: { t: Translations } = $props();
 
   let infoOpen = $state(false);
+
+  const coBrandPartnerLabel = $derived(
+    $branding.copy[`co_brand_partner_${$locale}`] ?? $branding.co_brand_partner
+  );
 </script>
 
 <footer class="footer">
   <span class="footer-copy">
-    &copy; 2026 {$branding.site_name}{#if $branding.co_brand_partner}<span class="footer-partner"> · Powered by {$branding.co_brand_partner}</span>{/if}
+    &copy; 2026 {$branding.site_name}{#if coBrandPartnerLabel}<span class="footer-partner"> · Powered by {coBrandPartnerLabel}</span>{/if}
   </span>
   <p class="oss">Open Source · <a href="https://github.com/anatolykoptev/oxpulse-chat" target="_blank" rel="noopener">GitHub</a></p>
   <nav class="footer-links desktop-only">

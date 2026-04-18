@@ -23,11 +23,7 @@ pub fn build_mirror_chain(host: &str, configs: &[BrandingConfig]) -> (String, Ve
     let current_partner = &configs[current_idx];
 
     let primary = if host.is_empty() {
-        current_partner
-            .domains
-            .first()
-            .cloned()
-            .unwrap_or_default()
+        current_partner.domains.first().cloned().unwrap_or_default()
     } else {
         host.to_string()
     };
@@ -101,7 +97,10 @@ mod tests {
 
     fn test_configs() -> Vec<BrandingConfig> {
         vec![
-            make_cfg("oxpulse", &["oxpulse.chat", "www.oxpulse.chat", "localhost"]),
+            make_cfg(
+                "oxpulse",
+                &["oxpulse.chat", "www.oxpulse.chat", "localhost"],
+            ),
             make_cfg("piter", &["call.piter.now"]),
             make_cfg(
                 "rvpn",
