@@ -126,6 +126,19 @@ async fn ws_call(
 }
 
 async fn turn_credentials(State(state): State<AppState>) -> axum::response::Response {
+    let start = std::time::Instant::now();
+    let resp = turn_credentials_inner(&state);
+    state
+        .metrics
+        .turn_cred_latency_seconds
+        .observe(start.elapsed().as_secs_f64());
+    if resp.status() == StatusCode::OK {
+        state.metrics.turn_creds_issued_total.inc();
+    }
+    resp
+}
+
+fn turn_credentials_inner(state: &AppState) -> axum::response::Response {
     if state.turn_secret.is_empty() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,

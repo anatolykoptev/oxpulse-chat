@@ -20,7 +20,9 @@ async fn main() {
     let config = Config::from_env();
     oxpulse_chat::branding::init();
 
-    let rooms = oxpulse_signaling::Rooms::new();
+    let metrics = std::sync::Arc::new(oxpulse_chat::metrics::Metrics::new());
+
+    let rooms = oxpulse_signaling::Rooms::with_metrics(metrics.clone());
     rooms.start_cleanup_task();
 
     let pool = if let Some(ref db_url) = config.database_url {
@@ -40,6 +42,7 @@ async fn main() {
     let _probe_handle = turn_pool.start_probe_task(
         std::time::Duration::from_secs(config.turn_probe_interval_secs),
         config.turn_unhealthy_after_fails,
+        Some(std::sync::Arc::new(metrics.turn_servers_healthy.clone())),
     );
 
     let state = AppState {
@@ -49,7 +52,7 @@ async fn main() {
         stun_urls: config.stun_urls,
         pool,
         turn_pool,
-        metrics: std::sync::Arc::new(oxpulse_chat::metrics::Metrics::new()),
+        metrics: metrics.clone(),
         metrics_token: config.metrics_token,
     };
 

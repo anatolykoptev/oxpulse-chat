@@ -19,9 +19,18 @@ pub async fn ws_call_handler(
 }
 
 async fn handle_call_ws(socket: WebSocket, room_id: String, rooms: Rooms) {
+    let metrics = rooms.metrics.clone();
+    metrics.on_ws_connect();
+    // Metrics are observed in *every* exit path via this scope guard.
+    let _disconnect = DisconnectGuard {
+        metrics: metrics.clone(),
+    };
+
     let (mut sink, mut stream) = socket.split();
 
     if !wait_for_join(&mut stream).await {
+        metrics.on_ws_handshake_failed();
+        metrics.on_ws_join_err();
         let msg = ServerMsg::Error {
             message: "expected join message".into(),
         };
@@ -32,6 +41,8 @@ async fn handle_call_ws(socket: WebSocket, room_id: String, rooms: Rooms) {
     let (tx, polite, peer_id) = match rooms.join(&room_id) {
         Some(triple) => triple,
         None => {
+            metrics.on_ws_handshake_failed();
+            metrics.on_ws_join_err();
             let msg = ServerMsg::Error {
                 message: "Room is full".into(),
             };
@@ -45,9 +56,12 @@ async fn handle_call_ws(socket: WebSocket, room_id: String, rooms: Rooms) {
         .await
         .is_err()
     {
+        metrics.on_ws_handshake_failed();
+        metrics.on_ws_join_err();
         rooms.leave(&room_id);
         return;
     }
+    metrics.on_ws_join_ok();
     tracing::info!(room_id = %room_id, polite, peer_id, "call_peer_joined");
 
     // Subscribe to broadcast BEFORE sending PeerJoined so nothing is missed.
@@ -109,9 +123,22 @@ async fn handle_call_ws(socket: WebSocket, room_id: String, rooms: Rooms) {
             .unwrap_or_default()
             .as_secs() as i64;
         let duration_secs = (now - connected_at).max(0) as u64;
+        metrics.on_call_ended(duration_secs as f64);
         tracing::info!(room_id = %room_id, duration_secs, "call_ended");
     } else {
         tracing::info!(room_id = %room_id, "call_peer_left");
+    }
+}
+
+/// RAII guard — fires `on_ws_disconnect` when dropped (covers every exit path
+/// including panics and early returns before `Joined`).
+struct DisconnectGuard {
+    metrics: std::sync::Arc<dyn crate::metrics::SignalingMetrics>,
+}
+
+impl Drop for DisconnectGuard {
+    fn drop(&mut self) {
+        self.metrics.on_ws_disconnect();
     }
 }
 
