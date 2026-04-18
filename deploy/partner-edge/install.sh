@@ -36,6 +36,7 @@ IMAGE_VERSION="${OXPULSE_IMAGE_VERSION:-latest}"
 # response rendered by hydrate.sh in Phase 6 (Task 5.2).
 TURNS_SUBDOMAIN="${TURNS_SUBDOMAIN:-turns}"
 DRY_RUN=0
+BAKE_MODE=0
 
 usage() {
 	sed -n '2,18p' "$0" >&2
@@ -53,6 +54,7 @@ Optional:
   --tunnel=vless|wg|https    Backend tunnel kind (default: vless)
   --image-version=<tag>      Pull a specific image tag (default: latest)
   --dry-run                  Render templates + print plan, skip docker/systemd
+  --bake                     Bake phase: install packages + images + units, no secrets, no start. For snapshot workflows.
   -h|--help                  Show this help
 
 Env overrides: OXPULSE_IMAGE_REGISTRY, OXPULSE_BACKEND_API, OXPULSE_REPO_RAW
@@ -69,6 +71,7 @@ while [[ $# -gt 0 ]]; do
 		--tunnel=*)         TUNNEL="${1#*=}" ;;
 		--image-version=*)  IMAGE_VERSION="${1#*=}" ;;
 		--dry-run)          DRY_RUN=1 ;;
+		--bake)             BAKE_MODE=1 ;;
 		-h|--help)          usage ;;
 		*) die "unknown arg: $1 (try --help)" ;;
 	esac
@@ -77,7 +80,7 @@ done
 
 [[ -z "$DOMAIN" ]]     && die "--domain is required"
 [[ -z "$PARTNER_ID" ]] && die "--partner-id is required"
-if [[ -z "$TOKEN" && -z "$MANUAL_CONFIG" ]]; then
+if [[ "$BAKE_MODE" = "0" && -z "$TOKEN" && -z "$MANUAL_CONFIG" ]]; then
 	die "either --token or --manual-config is required (see --help)"
 fi
 case "$TUNNEL" in
@@ -162,6 +165,10 @@ if [[ -z "$PRIVATE_IP" ]]; then
 	fi
 fi
 log "  public=$PUBLIC_IP private=${PRIVATE_IP:-<none>}"
+
+# ---------- Steps 4-8: hydrate path (secrets + service start) ----------
+# Skipped in --bake mode; runs in legacy (default) mode only.
+if [ "$BAKE_MODE" = "0" ]; then
 
 # ---------- Step 4: fetch node config ----------
 log "[4/10] fetching node config"
@@ -346,6 +353,8 @@ else
 	warn "  [dry-run] skipping healthcheck"
 fi
 
+fi  # end BAKE_MODE=0 (hydrate path)
+
 # ---------- Step 9: systemd ----------
 log "[9/10] installing systemd unit"
 if [[ $DRY_RUN -eq 0 ]]; then
@@ -380,14 +389,35 @@ if [[ $DRY_RUN -eq 0 ]]; then
 		rm -f "/tmp/${unit}.rendered" "/tmp/${unit}.fetched"
 	done
 	systemctl daemon-reload
-	systemctl enable --now oxpulse-partner-edge.service
-	systemctl enable --now oxpulse-partner-cert-watch.path
+	if [ "$BAKE_MODE" = "0" ]; then
+		systemctl enable --now oxpulse-partner-edge.service
+		systemctl enable --now oxpulse-partner-cert-watch.path
+	else
+		log "  [bake] units installed, daemon-reloaded; services not started (snapshot-safe)"
+	fi
 else
 	warn "  [dry-run] skipping systemd install"
 fi
 
 # ---------- Step 10: report ----------
 log "[10/10] done"
+
+if [ "$BAKE_MODE" = "1" ]; then
+cat <<BANNER
+
+========================================================================
+  OxPulse partner-edge BAKE complete (snapshot-safe).
+
+  Partner   : $PARTNER_ID
+  Domain    : $DOMAIN
+  Version   : $IMAGE_VERSION
+
+  Packages, Docker images, and systemd units are installed.
+  Services are NOT started. Take your snapshot now, then run
+  hydrate.sh on first boot of each cloned VM.
+========================================================================
+BANNER
+else
 cat <<BANNER
 
 ========================================================================
@@ -413,3 +443,4 @@ cat <<BANNER
   3. Open https://$DOMAIN and verify branding
 ========================================================================
 BANNER
+fi
