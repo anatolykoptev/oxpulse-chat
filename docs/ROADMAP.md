@@ -74,6 +74,57 @@ Open-source encrypted messenger with video calls. Works in Russia, offline, and 
 
 ---
 
+
+## Partner Network & Operational Maturity (partner-edge v0.2.0)
+
+**Goal:** Multi-region partner-edge deployments, observability, abuse protection. Parallel track to Phase 2 accounts below — focused on censorship-resistance infra, not user accounts.
+
+Tracked in `docs/superpowers/plans/2026-04-10-oxpulse-chat-partner-launch.md` + `2026-04-11-oxpulse-chat-phase2-continuation.md`.
+
+### TurnPool + geo routing
+- [x] Structured `TURN_SERVERS` config format (`region:priority:url`)
+- [x] `TurnPool` container + accessors (Task 2.1-2.2)
+- [x] STUN binding-request probe loop with health transitions (Task 2.3)
+- [x] `/api/turn-credentials` serves only healthy pool members (Task 2.4)
+- [ ] Geo-hint from client headers (`X-Client-Region` / `CF-IPCountry`) (Task 2.5)
+- [ ] SIGHUP hot-reload of TURN server list via ArcSwap (Task 2.6)
+
+### Partner-edge v0.2.0 (TURNS-on-:443, Variant A')
+- [x] Architectural PoC + DECISION.md (caddy-l4 SNI mux)
+- [x] Docker bundle (caddy + xray-client + coturn)
+- [x] `install.sh` with `--bake` mode
+- [x] `hydrate.sh` per-clone first-boot script
+- [x] Cert-watch systemd units for coturn reload
+- [x] GHCR images published: `partner-edge-{caddy,xray,coturn}:v0.2.0`
+- [x] Cover page + `@probe` matcher (R1 Layer 2 active-probing defense)
+- [x] Partner registration API (`POST /api/partner/register` with bootstrap tokens)
+- [x] `partner-cli` for token issuance + node listing
+- [x] Multi-partner branding resolver (4 partners registered: oxpulse, piter, rvpn, ...)
+- [ ] Partner deployment to `rvpn` (blocked on wildcard DNS)
+- [ ] Register-to-use end-to-end validation (Task 7 of turn-node-template plan)
+
+### Observability
+- [x] Prometheus `/metrics` endpoint with token auth (Task 3.1)
+- [x] 10 SLO-aligned metrics wired into hot paths (Task 3.2)
+- [ ] Dozor alert rules (Task 3.3)
+- [ ] Grafana dashboard (Task 3.4)
+- [ ] Runbooks for TURN outage + WS failure (Task 3.5)
+
+### Abuse protection
+- [ ] Per-IP rate limit on `/api/turn-credentials` + `/api/event` (Task 4.1)
+- [ ] Room-ID entropy validation + join rate limit (Task 4.2)
+- [ ] Server-decided `iceTransportPolicy` (Task 4.3)
+
+### Load & chaos
+- [ ] WebSocket load test (1000 concurrent joins) (Task 5.1)
+- [ ] TURN failover drill (Task 5.2)
+- [ ] Analytics DB down chaos test (Task 5.3)
+
+### Launch checklist
+- [ ] Full partner-launch readiness review (Task 6.1)
+
+---
+
 ## Phase 2: Accounts & Contacts (v0.2.0)
 
 **Goal:** Users can register, save contacts, and call with one click.
