@@ -393,6 +393,22 @@ if [[ $DRY_RUN -eq 0 ]]; then
 		curl -fsSL "$REPO_RAW/upgrade.sh" -o "$PREFIX_SBIN/oxpulse-partner-edge-upgrade"
 		chmod 0755 "$PREFIX_SBIN/oxpulse-partner-edge-upgrade"
 	fi
+	# Hydrate script into /usr/local/sbin (installed in all modes; needed by the
+	# oneshot unit on first boot after snapshot→clone).
+	if [[ -n "$src_dir" && -f "$src_dir/hydrate.sh" ]]; then
+		install -m 0755 "$src_dir/hydrate.sh" "$PREFIX_SBIN/oxpulse-partner-edge-hydrate"
+	else
+		curl -fsSL "$REPO_RAW/hydrate.sh" -o "$PREFIX_SBIN/oxpulse-partner-edge-hydrate"
+		chmod 0755 "$PREFIX_SBIN/oxpulse-partner-edge-hydrate"
+	fi
+	# Hydrate oneshot unit (sentinel-gated; fires on first boot after clone).
+	if [[ -n "$src_dir" && -f "$src_dir/systemd/oxpulse-partner-edge-hydrate.service" ]]; then
+		install -m 0644 "$src_dir/systemd/oxpulse-partner-edge-hydrate.service" \
+			"$SYSTEMD_DIR/oxpulse-partner-edge-hydrate.service"
+	else
+		curl -fsSL "$REPO_RAW/systemd/oxpulse-partner-edge-hydrate.service" \
+			-o "$SYSTEMD_DIR/oxpulse-partner-edge-hydrate.service"
+	fi
 	# Cert-watch units (Task 2A.5): inotify path unit + oneshot signal service.
 	# Substitute {{TURNS_SUBDOMAIN}} + {{PARTNER_DOMAIN}} before install.
 	for unit in oxpulse-partner-cert-watch.path oxpulse-partner-cert-watch.service; do
@@ -413,7 +429,10 @@ if [[ $DRY_RUN -eq 0 ]]; then
 		systemctl enable --now oxpulse-partner-edge.service
 		systemctl enable --now oxpulse-partner-cert-watch.path
 	else
-		log "  [bake] units installed, daemon-reloaded; services not started (snapshot-safe)"
+		# Bake mode: enable hydrate so it fires on first boot after snapshot→clone.
+		# Do NOT start it now — secrets aren't present yet.
+		systemctl enable oxpulse-partner-edge-hydrate.service
+		log "  [bake] units installed, daemon-reloaded; hydrate.service enabled for first boot"
 	fi
 else
 	warn "  [dry-run] skipping systemd install"

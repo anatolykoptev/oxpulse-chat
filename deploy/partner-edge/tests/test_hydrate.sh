@@ -44,4 +44,12 @@ grep -qE 'sed_esc\s*\(\s*\)\s*\{' "$SCRIPT" \
 grep -qE "s/\[\\\\\\\\&\|\]/\\\\\\\\&/g" "$SCRIPT" \
     || { echo "FAIL: sed_esc escape pattern missing"; exit 1; }
 
+# 12: systemd unit file exists with negated ConditionPathExists + correct ExecStart.
+UNIT="$REPO_ROOT/deploy/partner-edge/systemd/oxpulse-partner-edge-hydrate.service"
+[ -f "$UNIT" ] || { echo "FAIL: $UNIT missing"; exit 1; }
+grep -qE '^ConditionPathExists=!/var/lib/oxpulse-partner-edge/hydrated' "$UNIT" \
+    || { echo "FAIL: negated sentinel condition missing in hydrate.service"; exit 1; }
+grep -qE '^ExecStart=/usr/local/sbin/oxpulse-partner-edge-hydrate' "$UNIT" \
+    || { echo "FAIL: ExecStart wrong in hydrate.service"; exit 1; }
+
 echo "PASS: hydrate.sh structure OK"

@@ -40,4 +40,21 @@ fi
 # Also verify at least one docker pull line exists.
 grep -qE 'docker pull ' "$SCRIPT" || { echo "FAIL: no docker pull found in script"; exit 1; }
 
+# 6. install.sh installs the hydrate unit file.
+grep -q 'oxpulse-partner-edge-hydrate.service' "$SCRIPT" \
+    || { echo "FAIL: install.sh does not install hydrate unit"; exit 1; }
+
+# 7. install.sh installs the hydrate script to /usr/local/sbin (via PREFIX_SBIN or literal).
+grep -qE '(PREFIX_SBIN|/usr/local/sbin)/oxpulse-partner-edge-hydrate' "$SCRIPT" \
+    || { echo "FAIL: install.sh does not install hydrate script"; exit 1; }
+
+# 8. install.sh enables the hydrate unit in bake mode (without --now).
+grep -qE 'systemctl enable oxpulse-partner-edge-hydrate\.service' "$SCRIPT" \
+    || { echo "FAIL: install.sh does not enable hydrate.service in bake mode"; exit 1; }
+# Confirm it's NOT enabled with --now (must not start on bake host).
+if grep -E 'systemctl enable.*--now.*oxpulse-partner-edge-hydrate' "$SCRIPT"; then
+    echo "FAIL: hydrate.service is enabled with --now (must not start during bake)"
+    exit 1
+fi
+
 echo "PASS: install.sh --bake structure present"
