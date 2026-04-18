@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/anatolykoptev/oxpulse-chat/compare/v0.3.0...v0.4.0) (2026-04-18)
+
+
+### Features
+
+* **server:** ML-KEM-768 post-quantum VLESS encryption support (Harvest Now, Decrypt Later defense) ([#24](https://github.com/anatolykoptev/oxpulse-chat/issues/24)) ([5285e1d](https://github.com/anatolykoptev/oxpulse-chat/commit/5285e1d3a2edcede8c45cdb0e1c7646594d20be5))
+* **server:** SNI rotation + partner-edge DoH for DNS-poison resistance ([#21](https://github.com/anatolykoptev/oxpulse-chat/issues/21)) ([78c9027](https://github.com/anatolykoptev/oxpulse-chat/commit/78c9027c7727f19883e8343f495e4c33c41c3329))
+
 ## [0.3.0](https://github.com/anatolykoptev/oxpulse-chat/compare/v0.2.0...v0.3.0) (2026-04-18)
 
 
