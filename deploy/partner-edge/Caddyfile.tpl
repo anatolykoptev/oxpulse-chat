@@ -11,6 +11,9 @@
 	# Global options — ACME on, admin on localhost only.
 	admin localhost:2019
 	email admin@{{PARTNER_DOMAIN}}
+	servers {
+		protocols h1 h2
+	}
 }
 
 {{PARTNER_DOMAIN}} {
@@ -22,6 +25,8 @@
 		Referrer-Policy "no-referrer"
 		X-Frame-Options "DENY"
 		-Server
+		-Via
+		-Alt-Svc
 	}
 
 	# Cache SvelteKit hashed assets for a year (immutable by filename hash).
