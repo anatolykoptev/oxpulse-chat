@@ -4,6 +4,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use tokio::sync::broadcast;
 
+use crate::metrics::{NoMetrics, SignalingMetrics};
 use crate::room_cleanup::{now_secs, start_cleanup_task};
 
 const MAX_PARTICIPANTS: u8 = 2;
@@ -32,6 +33,7 @@ pub struct Room {
 #[derive(Clone)]
 pub struct Rooms {
     pub(crate) inner: Arc<DashMap<String, Arc<Room>>>,
+    pub(crate) metrics: Arc<dyn SignalingMetrics>,
 }
 
 impl Default for Rooms {
@@ -42,24 +44,32 @@ impl Default for Rooms {
 
 impl Rooms {
     pub fn new() -> Self {
+        Self::with_metrics(Arc::new(NoMetrics))
+    }
+
+    /// Construct with a caller-provided metrics implementation.
+    pub fn with_metrics(metrics: Arc<dyn SignalingMetrics>) -> Self {
         Self {
             inner: Arc::new(DashMap::new()),
+            metrics,
         }
     }
 
     /// Start a background task that removes rooms empty for longer than the grace period.
     pub fn start_cleanup_task(&self) {
-        start_cleanup_task(Arc::clone(&self.inner));
+        start_cleanup_task(Arc::clone(&self.inner), Arc::clone(&self.metrics));
     }
 
     /// Join a room by ID. Returns `(sender, polite, peer_id)` or `None` if the room is full.
     ///
     /// The first participant gets `polite = false`, the second gets `polite = true`.
     pub fn join(&self, room_id: &str) -> Option<(broadcast::Sender<TaggedSignal>, bool, u64)> {
+        let mut opened = false;
         let room = self
             .inner
             .entry(room_id.to_owned())
             .or_insert_with(|| {
+                opened = true;
                 let (tx, _) = broadcast::channel(CHANNEL_CAPACITY);
                 Arc::new(Room {
                     tx,
@@ -80,6 +90,10 @@ impl Rooms {
 
         // Clear empty_since — room is no longer empty
         room.empty_since.store(0, Ordering::Relaxed);
+
+        if opened {
+            self.metrics.on_room_opened();
+        }
 
         let peer_id = room.next_peer_id.fetch_add(1, Ordering::Relaxed);
         let polite = prev > 0;

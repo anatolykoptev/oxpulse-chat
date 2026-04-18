@@ -61,3 +61,39 @@ async fn metrics_serves_prometheus_text_on_valid_token() {
         assert!(body.contains(name), "missing metric {name} in body: {body}");
     }
 }
+
+#[tokio::test]
+async fn metrics_reflect_turn_credentials_activity() {
+    let mut state: AppState = common::base_state();
+    state.metrics_token = "live-token".into();
+    // turn_secret must be set so /api/turn-credentials returns 200 (not 503).
+    state.turn_secret = "deadbeefdeadbeefdeadbeefdeadbeef".into();
+    let dir = common::spa_tempdir();
+    let app = build_router(state, dir.path().to_str().unwrap());
+    std::mem::forget(dir);
+    let server = TestServer::new(app);
+
+    // Hit the endpoint twice.
+    for _ in 0..2 {
+        let r = server.post("/api/turn-credentials").await;
+        r.assert_status_ok();
+    }
+
+    let resp = server
+        .get("/metrics")
+        .add_header("x-internal-token", "live-token")
+        .await;
+    resp.assert_status_ok();
+    let body = resp.text();
+    // counter should be 2, latency histogram count should be 2.
+    assert!(
+        body.contains("turn_creds_issued_total 2"),
+        "counter not incremented to 2:
+{body}"
+    );
+    assert!(
+        body.contains("turn_cred_latency_seconds_count 2"),
+        "latency count not 2:
+{body}"
+    );
+}

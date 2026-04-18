@@ -116,6 +116,34 @@ impl Default for Metrics {
     }
 }
 
+
+
+impl oxpulse_signaling::SignalingMetrics for Metrics {
+    fn on_ws_connect(&self) {
+        self.ws_connects_total.inc();
+    }
+    fn on_ws_disconnect(&self) {
+        self.ws_disconnects_total.inc();
+    }
+    fn on_ws_join_ok(&self) {
+        self.ws_join_total.with_label_values(&["ok"]).inc();
+    }
+    fn on_ws_join_err(&self) {
+        self.ws_join_total.with_label_values(&["err"]).inc();
+    }
+    fn on_ws_handshake_failed(&self) {
+        self.ws_handshake_failed_total.inc();
+    }
+    fn on_call_ended(&self, secs: f64) {
+        self.call_duration_seconds.observe(secs);
+    }
+    fn on_room_opened(&self) {
+        self.rooms_active.inc();
+    }
+    fn on_room_closed(&self) {
+        self.rooms_active.dec();
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,5 +178,46 @@ mod tests {
                 "exposition missing metric {name}: {out}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod signaling_impl_tests {
+    use super::*;
+    use oxpulse_signaling::SignalingMetrics;
+
+    #[test]
+    fn on_ws_connect_increments_counter() {
+        let m = Metrics::new();
+        let before = m.ws_connects_total.get();
+        m.on_ws_connect();
+        assert_eq!(m.ws_connects_total.get(), before + 1);
+    }
+
+    #[test]
+    fn on_ws_join_ok_and_err_have_separate_series() {
+        let m = Metrics::new();
+        m.on_ws_join_ok();
+        m.on_ws_join_ok();
+        m.on_ws_join_err();
+        assert_eq!(m.ws_join_total.with_label_values(&["ok"]).get(), 2);
+        assert_eq!(m.ws_join_total.with_label_values(&["err"]).get(), 1);
+    }
+
+    #[test]
+    fn on_room_opened_and_closed_balance() {
+        let m = Metrics::new();
+        m.on_room_opened();
+        m.on_room_opened();
+        m.on_room_closed();
+        assert_eq!(m.rooms_active.get(), 1);
+    }
+
+    #[test]
+    fn on_call_ended_records_duration() {
+        let m = Metrics::new();
+        m.on_call_ended(42.5);
+        assert_eq!(m.call_duration_seconds.get_sample_count(), 1);
+        assert!((m.call_duration_seconds.get_sample_sum() - 42.5).abs() < 1e-9);
     }
 }
