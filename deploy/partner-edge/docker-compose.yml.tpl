@@ -65,6 +65,11 @@ services:
     volumes:
       - ./coturn.conf:/etc/coturn/turnserver.conf:ro
       - coturn-log:/var/log/turnserver
+      # Read-only share of Caddy's ACME cert storage. Task 2A.3 coturn.conf.tpl
+      # references /data/caddy/certificates/.../turns-sub.DOMAIN.crt from this mount.
+      # Renewals trigger systemd path unit → docker exec coturn kill -USR2 1
+      # (Task 2A.5 wires that).
+      - caddy-data:/data/caddy:ro
     healthcheck:
       test: ["CMD-SHELL", "pgrep turnserver >/dev/null || exit 1"]
       interval: 30s
