@@ -55,7 +55,7 @@ maybe_v01_to_v02_preflight() {
 	PUBLIC_IP=$(curl -fsS --max-time 5 https://ifconfig.me 2>/dev/null || curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)
 	[[ -n "$PUBLIC_IP" ]] || die "could not determine public IP (both ifconfig.me and api.ipify.org failed)"
 
-	command -v dig >/dev/null 2>&1 || die "'dig' is not installed — install dnsutils (apt-get install dnsutils) and retry"
+	command -v dig >/dev/null 2>&1 || die "'dig' is not installed — install dnsutils (Debian/Ubuntu: 'apt-get install dnsutils'; RHEL/Rocky/Alma/CentOS: 'dnf install bind-utils') and retry"
 	DIG_IPS=$(dig +short +time=3 +tries=1 "${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN}" A | grep -E '^[0-9.]+$' | sort -u)
 	if ! grep -Fxq "$PUBLIC_IP" <<< "$DIG_IPS"; then
 		die "DNS preflight failed:

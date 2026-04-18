@@ -132,7 +132,7 @@ if [[ $DRY_RUN -eq 0 ]]; then
 		if [[ $OS_FAMILY == debian ]]; then
 			apt-get update -q && apt-get install -y -q docker-compose-plugin dnsutils
 		else
-			dnf install -y docker-compose-plugin || dnf install -y docker-compose
+			dnf install -y docker-compose-plugin bind-utils || dnf install -y docker-compose bind-utils
 		fi
 	fi
 	systemctl enable --now docker
