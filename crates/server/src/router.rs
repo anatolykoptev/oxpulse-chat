@@ -125,9 +125,27 @@ async fn ws_call(
     oxpulse_signaling::ws_call_handler(ws, Path(room_id), State(state.rooms)).await
 }
 
-async fn turn_credentials(State(state): State<AppState>) -> axum::response::Response {
+/// Extract a lowercased geo hint from client headers.
+///
+/// Prefers `X-Client-Region` (set by our edge) over `CF-IPCountry`
+/// (Cloudflare-provided). Returns `None` for missing OR empty-string
+/// header values so downstream code can treat "no hint" uniformly.
+fn geo_hint(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-client-region")
+        .or_else(|| headers.get("cf-ipcountry"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_ascii_lowercase())
+        .filter(|s| !s.is_empty())
+}
+
+async fn turn_credentials(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> axum::response::Response {
     let start = std::time::Instant::now();
-    let resp = turn_credentials_inner(&state);
+    let hint = geo_hint(&headers);
+    let resp = turn_credentials_inner(&state, hint.as_deref());
     state
         .metrics
         .turn_cred_latency_seconds
@@ -138,7 +156,7 @@ async fn turn_credentials(State(state): State<AppState>) -> axum::response::Resp
     resp
 }
 
-fn turn_credentials_inner(state: &AppState) -> axum::response::Response {
+fn turn_credentials_inner(state: &AppState, hint: Option<&str>) -> axum::response::Response {
     if state.turn_secret.is_empty() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -149,10 +167,12 @@ fn turn_credentials_inner(state: &AppState) -> axum::response::Response {
     // Prefer the dynamic pool when at least one server is healthy. Fall
     // back to the static `turn_urls` list (backward compat) when the pool
     // is empty OR every server is currently unhealthy.
-    let mut healthy = state.turn_pool.healthy();
+    let healthy = state.turn_pool.healthy();
     let turn_urls: Vec<String> = if !healthy.is_empty() {
-        healthy.sort_by_key(|s| s.cfg.priority);
-        healthy.iter().map(|s| s.cfg.url.clone()).collect()
+        order_by_geo(healthy, hint)
+            .into_iter()
+            .map(|s| s.cfg.url.clone())
+            .collect()
     } else {
         state.turn_urls.clone()
     };
@@ -164,6 +184,27 @@ fn turn_credentials_inner(state: &AppState) -> axum::response::Response {
         &state.stun_urls,
     );
     (StatusCode::OK, Json(creds)).into_response()
+}
+
+/// Reorder a healthy TURN pool by region prefix match against an optional
+/// geo hint. Servers whose `cfg.region` (lowercased) starts with the hint
+/// come first (priority-ascending within that group), followed by the
+/// remainder (also priority-ascending). With `None`/no-match, this is
+/// equivalent to a simple priority sort.
+fn order_by_geo(
+    mut healthy: Vec<std::sync::Arc<crate::turn_pool::TurnServer>>,
+    hint: Option<&str>,
+) -> Vec<std::sync::Arc<crate::turn_pool::TurnServer>> {
+    // Stable sort by priority first — this handles the None/no-match case
+    // and also acts as the tie-break ordering within partition groups.
+    healthy.sort_by_key(|s| s.cfg.priority);
+    let Some(hint) = hint else {
+        return healthy;
+    };
+    let (matched, rest): (Vec<_>, Vec<_>) = healthy
+        .into_iter()
+        .partition(|s| s.cfg.region.to_ascii_lowercase().starts_with(hint));
+    matched.into_iter().chain(rest).collect()
 }
 
 async fn health() -> &'static str {
@@ -225,5 +266,106 @@ mod metrics_handler_tests {
     fn constant_time_eq_empty() {
         assert!(constant_time_eq(b"", b""));
         assert!(!constant_time_eq(b"", b"x"));
+    }
+}
+
+#[cfg(test)]
+mod geo_hint_tests {
+    use super::{geo_hint, order_by_geo};
+    use crate::config::TurnServerCfg;
+    use crate::turn_pool::TurnServer;
+    use axum::http::{HeaderMap, HeaderValue};
+    use std::sync::atomic::{AtomicBool, AtomicU32};
+    use std::sync::Arc;
+
+    fn hdrs(pairs: &[(&'static str, &str)]) -> HeaderMap {
+        let mut h = HeaderMap::new();
+        for (k, v) in pairs {
+            h.insert(*k, HeaderValue::from_str(v).unwrap());
+        }
+        h
+    }
+
+    #[test]
+    fn geo_hint_prefers_x_client_region() {
+        let h = hdrs(&[("x-client-region", "RU-MSK"), ("cf-ipcountry", "DE")]);
+        assert_eq!(geo_hint(&h).as_deref(), Some("ru-msk"));
+    }
+
+    #[test]
+    fn geo_hint_falls_back_to_cf_ipcountry() {
+        let h = hdrs(&[("cf-ipcountry", "RU")]);
+        assert_eq!(geo_hint(&h).as_deref(), Some("ru"));
+    }
+
+    #[test]
+    fn geo_hint_none_without_headers() {
+        let h = HeaderMap::new();
+        assert_eq!(geo_hint(&h), None);
+    }
+
+    #[test]
+    fn geo_hint_none_for_empty_header() {
+        let h = hdrs(&[("x-client-region", "")]);
+        assert_eq!(geo_hint(&h), None);
+        let h = hdrs(&[("cf-ipcountry", "")]);
+        assert_eq!(geo_hint(&h), None);
+    }
+
+    #[test]
+    fn geo_hint_lowercases() {
+        let h = hdrs(&[("x-client-region", "Ru-SpB")]);
+        assert_eq!(geo_hint(&h).as_deref(), Some("ru-spb"));
+    }
+
+    // --- order_by_geo coverage (exercises the reordering logic used by
+    // turn_credentials_inner). The integration test in
+    // tests/turn_credentials.rs covers the end-to-end HTTP path.
+
+    fn srv(region: &str, priority: i32, url: &str) -> Arc<TurnServer> {
+        Arc::new(TurnServer {
+            cfg: TurnServerCfg {
+                url: url.to_string(),
+                region: region.to_string(),
+                priority,
+            },
+            healthy: AtomicBool::new(true),
+            consecutive_failures: AtomicU32::new(0),
+            last_rtt_ms: AtomicU32::new(0),
+        })
+    }
+
+    #[test]
+    fn order_by_geo_prefers_prefix_match_then_priority() {
+        let pool = vec![
+            srv("ru-spb", 0, "turn:ru-spb"),
+            srv("de-fra", 0, "turn:de-fra"),
+            srv("ru-msk", 5, "turn:ru-msk"),
+        ];
+        let ordered = order_by_geo(pool, Some("ru"));
+        let urls: Vec<_> = ordered.iter().map(|s| s.cfg.url.clone()).collect();
+        assert_eq!(urls, vec!["turn:ru-spb", "turn:ru-msk", "turn:de-fra"]);
+    }
+
+    #[test]
+    fn order_by_geo_no_hint_sorts_by_priority() {
+        let pool = vec![
+            srv("de-fra", 5, "turn:de-fra"),
+            srv("ru-msk", 0, "turn:ru-msk"),
+        ];
+        let ordered = order_by_geo(pool, None);
+        let urls: Vec<_> = ordered.iter().map(|s| s.cfg.url.clone()).collect();
+        assert_eq!(urls, vec!["turn:ru-msk", "turn:de-fra"]);
+    }
+
+    #[test]
+    fn order_by_geo_unknown_hint_sorts_by_priority() {
+        let pool = vec![
+            srv("de-fra", 5, "turn:de-fra"),
+            srv("ru-msk", 0, "turn:ru-msk"),
+        ];
+        let ordered = order_by_geo(pool, Some("unknown"));
+        let urls: Vec<_> = ordered.iter().map(|s| s.cfg.url.clone()).collect();
+        assert_eq!(urls, vec!["turn:ru-msk", "turn:de-fra"]);
     }
 }
