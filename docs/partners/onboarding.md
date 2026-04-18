@@ -44,6 +44,102 @@ HMAC credentials; media flows browser ↔ coturn ↔ browser directly.
   committed to git, never pasted in chat history.** Rotated on a
   schedule — operator notifies the partner before each rotation.
 
+### 3.1 ASN selection for Russian ТСПУ environments
+
+TURNS-on-:443 relies on sustained long-lived TCP/TLS sessions —
+typically 10–60 minutes per active call. Under current Russian ТСПУ
+behaviour (Q2 2026), certain hosting ranges are subject to a ~16 KB
+per-connection cap on TLS traffic. When a TURNS session hits that cap
+the connection is terminated by the middlebox, dropping the call within
+seconds of start. Non-ТСПУ users (EU, US, CIS outside Russia) are not
+affected; the cap is applied only at the ТСПУ enforcement points inside
+Russian ISPs.
+
+**Flagged ASN ranges — avoid for Russian-facing deployments:**
+
+- Cloudflare (all ranges)
+- Fastly (all ranges)
+- Hetzner (most /24s in AS24940)
+- DigitalOcean (most /24s in AS14061)
+- OVH (most /24s in AS16276)
+
+These providers are individually listed on the RKN "foreign hosting"
+registry or have been observed to trigger ТСПУ throttling in direct
+testing. The list is current as of Q2 2026 and may change as RKN
+updates its registry.
+
+**Recommended choices (in order of preference):**
+
+1. Smaller European VPS providers not listed on the RKN "foreign
+   hosting" registry. Examples: Serverius (NL), Worldstream (NL),
+   combahton (DE), RETN-peered providers.
+2. Russian-domestic hosting — acceptable if the partner's compliance
+   posture permits (data localisation rules apply for PII). Examples:
+   Selectel, Reg.ru, TimeWeb.
+3. A dedicated IP with no history of Tor exit node, open proxy, or CDN
+   fronting, on any provider not in the flagged list above.
+
+**Provider-specific notes:**
+
+*Hetzner.* `install.sh` completes normally on Hetzner infrastructure
+and the coturn relay accepts connections. Russian ТСПУ users experience
+call drops within seconds because the ~16 KB TLS cap terminates the
+underlying TURNS session. EU, US, and non-RU CIS users are unaffected
+— call quality is normal from those geographies.
+
+*DigitalOcean.* Same behaviour as Hetzner: install and basic
+connectivity succeed; Russian users hit the per-connection TLS cap and
+the relay is unreliable for that traffic segment. Non-ТСПУ deployments
+are unaffected.
+
+*AWS (EC2 direct, not CloudFront).* AWS EC2 addresses are not currently
+on the RKN registry at the AS16509 level. If the partner uses EC2
+directly — not via CloudFront — reliability for Russian users is
+generally acceptable. Verify the public IP does not fall in a
+CloudFront range before relying on it for ТСПУ traffic.
+
+Partner-edge installs on flagged ASNs still function for non-ТСПУ
+traffic. This guidance is about user-geography reliability, not a hard
+install gate.
+
+### 3.2 DNS requirements (v0.2.0+)
+
+v0.2.0 introduces a second A-record requirement alongside the existing
+primary record. Both records must be in place **before** running
+`install.sh` or `hydrate.sh`.
+
+**Required DNS records:**
+
+| Record | Value | Purpose |
+|--------|-------|---------|
+| `<your-domain>` | `<public-ip>` | Primary vhost; Caddy ACME HTTP-01 |
+| `<turns-subdomain>.<your-domain>` | `<public-ip>` | TURNS cert; Caddy ACME HTTP-01 |
+
+`<turns-subdomain>` is backend-assigned during partner registration and
+returned in the `turns_subdomain` field of the register response. The
+format is `api-<6-hex>` (example: `api-a3f8c1`). Both records point to
+the same `<public-ip>`.
+
+**Why this matters.** `install.sh` and `hydrate.sh` run a DNS preflight
+that resolves `<turns-subdomain>.<your-domain>` before touching
+anything else. If the record is missing or mismatched, both scripts
+abort with a clear error and make no changes. Caddy cannot issue the
+TURNS TLS certificate via ACME HTTP-01 without the A-record resolving
+to the server's public IP.
+
+**Propagation.** Set TTL ≤300 seconds on both records during
+onboarding. Verify from an external resolver before proceeding:
+
+```bash
+dig +short <turns-subdomain>.<your-domain> @1.1.1.1
+# must return <public-ip>
+```
+
+**Upgrading from v0.1.** `upgrade.sh` runs the same DNS preflight on
+startup and aborts before any mutation if the turns-subdomain record is
+missing. Add the record and re-run `upgrade.sh`. The script is
+co-located with `install.sh` in `deploy/turn-node/`.
+
 ## 4. One-command install
 
 On a freshly provisioned VM (Debian 12, Ubuntu 22.04/24.04, RHEL/Alma/Rocky/CentOS Stream 9),
