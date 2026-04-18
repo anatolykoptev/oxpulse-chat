@@ -30,6 +30,7 @@ if [[ -r "$STATE_FILE" ]]; then
 	# shellcheck disable=SC1090
 	. "$STATE_FILE"
 	DOMAIN="${PARTNER_DOMAIN:-}"
+	TURNS_SUBDOMAIN="${TURNS_SUBDOMAIN:-}"
 fi
 
 FAIL=0
@@ -117,9 +118,21 @@ check "8. coturn secret matches config" bash -c '
 	[[ -n "$running" && "$running" = "$expected" ]]
 '
 
+# --- 9. TURNS on :443 — TLS handshake against turns-sub.DOMAIN ---
+echo -n "9. TURNS-443 handshake: "
+if [ -z "${TURNS_SUBDOMAIN:-}" ]; then
+	echo "SKIP — TURNS_SUBDOMAIN not set in install.env (upgrade from v0.1.x?)"
+elif timeout 10 openssl s_client -connect "${TURNS_SUBDOMAIN}.${DOMAIN}:443" -servername "${TURNS_SUBDOMAIN}.${DOMAIN}" </dev/null 2>/dev/null \
+	| grep -q "Verify return code: 0 (ok)"; then
+	echo "PASS"
+else
+	echo "FAIL"
+	FAIL=$((FAIL + 1))
+fi
+
 echo
 if [[ $FAIL -eq 0 ]]; then
-	echo "All 8 checks passed."
+	echo "All 9 checks passed."
 	exit 0
 else
 	echo "$FAIL check(s) failed."
