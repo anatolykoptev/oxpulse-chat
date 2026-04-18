@@ -2,24 +2,6 @@
   "log": {
     "loglevel": "warning"
   },
-  "dns": {
-    "servers": [
-      {
-        "address": "https://1.1.1.1/dns-query",
-        "port": 443,
-        "skipFallback": false,
-        "domains": ["domain:samsung.com"]
-      },
-      {
-        "address": "https://dns.google/dns-query",
-        "port": 443,
-        "skipFallback": false,
-        "domains": ["domain:samsung.com"]
-      },
-      "localhost"
-    ],
-    "queryStrategy": "UseIP"
-  },
   "inbounds": [
     {
       "tag": "tunnel-edge",
