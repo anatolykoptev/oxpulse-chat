@@ -13,6 +13,13 @@ Both variants run on loopback (`127.0.0.1:18443` → container `:443`) to avoid
 conflict with any real Caddy/nginx on the host. Self-signed certs via Caddy's
 local CA (Variant A') or openssl init (Variant B).
 
+**Requires Docker Compose ≥ v2.17** — Variant A' uses `dockerfile_inline`, which
+older versions reject with a YAML parse error. Check: `docker compose version`.
+
+**Only ONE variant at a time** — both bind `127.0.0.1:18443`, so starting the
+second while the first is up fails with a port-bind error. Always `docker compose
+down -v` before switching.
+
 ## Running Variant A'
 
 ```bash
