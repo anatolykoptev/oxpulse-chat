@@ -20,6 +20,7 @@ pub struct Config {
     pub cors_origins: Vec<String>,
     pub room_assets_dir: String,
     pub database_url: Option<String>,
+    pub metrics_token: String,
 }
 
 impl Config {
@@ -40,6 +41,7 @@ impl Config {
             cors_origins: csv_or("CORS_ORIGINS", "*"),
             room_assets_dir: env("ROOM_ASSETS_DIR", "/app/room"),
             database_url: std::env::var("DATABASE_URL").ok().filter(|s| !s.is_empty()),
+            metrics_token: env("METRICS_TOKEN", ""),
         }
     }
 }

@@ -18,6 +18,9 @@ pub struct AppState {
     pub stun_urls: Vec<String>,
     pub pool: Option<sqlx::PgPool>,
     pub turn_pool: crate::turn_pool::TurnPool,
+    pub metrics: std::sync::Arc<crate::metrics::Metrics>,
+    /// If empty, /metrics returns 401 for all requests (endpoint disabled).
+    pub metrics_token: String,
 }
 
 static SPA_INDEX: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -71,6 +74,7 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
         .route("/api/turn-credentials", post(turn_credentials))
         .route("/api/event", post(crate::analytics::ingest))
         .route("/api/health", get(health))
+        .route("/metrics", get(metrics_handler))
         .route("/api/branding", get(crate::branding::handler))
         .route("/api/domains", get(crate::domains::handler))
         .route(
@@ -151,4 +155,62 @@ async fn turn_credentials(State(state): State<AppState>) -> axum::response::Resp
 
 async fn health() -> &'static str {
     "ok"
+}
+
+async fn metrics_handler(headers: HeaderMap, State(state): State<AppState>) -> axum::response::Response {
+    if state.metrics_token.is_empty() {
+        return (StatusCode::UNAUTHORIZED, "").into_response();
+    }
+    let provided = headers
+        .get("x-internal-token")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !constant_time_eq(provided.as_bytes(), state.metrics_token.as_bytes()) {
+        return (StatusCode::UNAUTHORIZED, "").into_response();
+    }
+    use prometheus::Encoder;
+    let enc = prometheus::TextEncoder::new();
+    let mut buf = Vec::new();
+    if enc.encode(&state.metrics.registry.gather(), &mut buf).is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "encode failed").into_response();
+    }
+    (
+        StatusCode::OK,
+        [(CONTENT_TYPE, HeaderValue::from_static("text/plain; version=0.0.4"))],
+        String::from_utf8(buf).unwrap_or_default(),
+    )
+        .into_response()
+}
+
+/// Length-aware constant-time byte-slice equality. Prevents timing
+/// side-channel leaking the valid token shape to an attacker probing
+/// /metrics with varied guesses.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+#[cfg(test)]
+mod metrics_handler_tests {
+    use super::constant_time_eq;
+
+    #[test]
+    fn constant_time_eq_matches() {
+        assert!(constant_time_eq(b"abc123", b"abc123"));
+    }
+    #[test]
+    fn constant_time_eq_rejects_different() {
+        assert!(!constant_time_eq(b"abc123", b"abc124"));
+    }
+    #[test]
+    fn constant_time_eq_rejects_different_len() {
+        assert!(!constant_time_eq(b"abc", b"abcd"));
+    }
+    #[test]
+    fn constant_time_eq_empty() {
+        assert!(constant_time_eq(b"", b""));
+        assert!(!constant_time_eq(b"", b"x"));
+    }
 }

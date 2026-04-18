@@ -49,6 +49,8 @@ async fn main() {
         stun_urls: config.stun_urls,
         pool,
         turn_pool,
+        metrics: std::sync::Arc::new(oxpulse_chat::metrics::Metrics::new()),
+        metrics_token: config.metrics_token,
     };
 
     let cors = build_cors(&config.cors_origins);
