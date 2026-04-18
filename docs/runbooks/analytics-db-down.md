@@ -34,7 +34,7 @@ Affected:
   - `docker exec oxpulse-chat sh -c 'nc -zv postgres 5432'` — connection refused means the DB is unreachable; success means the DB is up but writes are broken.
 - Check the postgres container:
   - `docker ps --filter name=postgres --format '{{.Names}}\t{{.Status}}'`
-  - If state is `exited` or `restarting`: `cd ~/deploy/krolik-server && docker compose up -d postgres`
+  - If state is `exited` or `restarting`: `cd $OPERATOR_DEPLOY && docker compose up -d postgres`
 - Pull recent postgres logs:
   - `docker logs postgres --tail 100`
 - Check connection saturation (oxpulse-chat pool is tiny, but other services share this postgres):

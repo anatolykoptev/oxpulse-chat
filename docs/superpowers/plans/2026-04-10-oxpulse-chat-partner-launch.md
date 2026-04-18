@@ -366,7 +366,7 @@ git commit -m "fix(web): use \$derived.by for timerStr so reactivity caches"
 
 ### Task 1.8: Deploy Phase 1 + manual verification
 
-- [ ] **Step 1:** `cd ~/deploy/krolik-server && docker compose build oxpulse-chat && docker compose up -d --no-deps --force-recreate oxpulse-chat`
+- [ ] **Step 1:** `cd $OPERATOR_DEPLOY && docker compose build oxpulse-chat && docker compose up -d --no-deps --force-recreate oxpulse-chat`
 - [ ] **Step 2:** `curl -sI https://oxpulse.chat/TEST-0001 | head -5` — expect `200` + `content-type: text/html`.
 - [ ] **Step 3:** Post a room link in Telegram — verify preview card shows, no "file" badge.
 - [ ] **Step 4:** Open any room in two tabs, hang up one, confirm no failure flash in the other.
