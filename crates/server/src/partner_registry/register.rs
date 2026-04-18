@@ -103,12 +103,30 @@ pub async fn register(
         return Err(RegistrationError::PartnerMismatch);
     }
 
-    let node_id = format!("{partner_id}-{}", short_random_hex(6));
-    let turns_subdomain = format!(
-        "api-{}",
-        node_id.split('-').last().unwrap_or("000000")
-    );
+    let hex = short_random_hex(6);
+    let proposed_node_id = format!("{partner_id}-{hex}");
+    let proposed_turns_subdomain = format!("api-{hex}");
 
+    // INSERT proposed values; on conflict (re-registration of the same clone)
+    // keep the existing row's node_id and turns_subdomain for stability, but
+    // update public_ip because the clone may come back from a new address.
+    let (node_id, turns_subdomain): (String, String) = sqlx::query_as(
+        "INSERT INTO partner_nodes \
+             (node_id, partner_id, domain, turns_subdomain, public_ip) \
+         VALUES ($1, $2, $3, $4, $5) \
+         ON CONFLICT (partner_id, domain) \
+             DO UPDATE SET last_seen_at = NOW(), public_ip = EXCLUDED.public_ip \
+         RETURNING node_id, turns_subdomain",
+    )
+    .bind(&proposed_node_id)
+    .bind(partner_id)
+    .bind(domain)
+    .bind(&proposed_turns_subdomain)
+    .bind(public_ip.to_string())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Use the canonical node_id returned from the DB (stable across re-registration).
     sqlx::query(
         "UPDATE partner_tokens \
          SET used_at = NOW(), used_from_ip = $1, node_id = $2 \
@@ -118,22 +136,6 @@ pub async fn register(
     .bind(&node_id)
     .bind(token_id)
     .execute(&mut *tx)
-    .await?;
-
-    let turns_subdomain: String = sqlx::query_scalar(
-        "INSERT INTO partner_nodes \
-             (node_id, partner_id, domain, turns_subdomain, public_ip) \
-         VALUES ($1, $2, $3, $4, $5) \
-         ON CONFLICT (partner_id, domain) \
-             DO UPDATE SET last_seen_at = NOW() \
-         RETURNING turns_subdomain",
-    )
-    .bind(&node_id)
-    .bind(partner_id)
-    .bind(domain)
-    .bind(&turns_subdomain)
-    .bind(public_ip.to_string())
-    .fetch_one(&mut *tx)
     .await?;
 
     tx.commit().await?;

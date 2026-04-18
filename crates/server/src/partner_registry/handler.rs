@@ -16,15 +16,26 @@
 //! victim IP.
 
 use std::net::IpAddr;
+use std::sync::LazyLock;
 
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
+use regex::Regex;
 
 use super::rate_limit;
 use super::register::{register, RegisterRequest};
 use crate::router::AppState;
+
+/// Strict DNS hostname regex: multi-label FQDN, no bare single-label names.
+/// Rejects injection chars (whitespace, newlines, Caddyfile metacharacters).
+static DOMAIN_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]$",
+    )
+    .expect("DOMAIN_RE is a valid regex")
+});
 
 /// Extract the client IP.
 ///
@@ -104,11 +115,11 @@ pub async fn handler(
         )
             .into_response();
     }
-    if body.domain.is_empty() || body.domain.len() > 253 {
+    if body.domain.is_empty() || body.domain.len() > 253 || !DOMAIN_RE.is_match(&body.domain) {
         return (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "error": "domain must be 1..=253 chars",
+                "error": "domain must be a valid DNS hostname (FQDN)",
                 "code": "bad_domain",
             })),
         )
