@@ -56,13 +56,12 @@ maybe_v01_to_v02_preflight() {
 	[[ -n "$PUBLIC_IP" ]] || die "could not determine public IP (both ifconfig.me and api.ipify.org failed)"
 
 	command -v dig >/dev/null 2>&1 || die "'dig' is not installed — install dnsutils (apt-get install dnsutils) and retry"
-	DIG_IP=$(dig +short +time=3 +tries=1 "${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN}" A | tail -n1)
-
-	if [[ "$DIG_IP" != "$PUBLIC_IP" ]]; then
-		die "DNS preflight failed: ${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN} resolves to '${DIG_IP:-<no record>}' but this server's public IP is '${PUBLIC_IP}'.
-Please create an A-record:
-  ${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN} -> ${PUBLIC_IP}
-Wait for propagation, then re-run upgrade."
+	DIG_IPS=$(dig +short +time=3 +tries=1 "${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN}" A | grep -E '^[0-9.]+$' | sort -u)
+	if ! grep -Fxq "$PUBLIC_IP" <<< "$DIG_IPS"; then
+		die "DNS preflight failed:
+  expected A-record for ${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN} to include ${PUBLIC_IP}
+  got: ${DIG_IPS:-<no record>}
+  fix: add A-record '${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN} -> ${PUBLIC_IP}' at your DNS provider, then re-run upgrade"
 	fi
 
 	V01_TO_V02=1

@@ -28,6 +28,16 @@ grep -qE '\^v0\\\.2' "$SCRIPT" \
 grep -qE 'dig \+short' "$SCRIPT" \
     || { echo "FAIL: 'dig +short' not found in upgrade.sh" >&2; exit 1; }
 
+# 6a. DNS check uses multi-A membership (grep -Fxq) not single-line tail -n1 equality.
+grep -qE 'grep -Fxq' "$SCRIPT" \
+    || { echo "FAIL: multi-A membership check (grep -Fxq) not found — DNS check may be fragile" >&2; exit 1; }
+
+# 6b. maybe_v01_to_v02_preflight is invoked before the rollback branch.
+preflight_line=$(grep -n '^maybe_v01_to_v02_preflight$' "$SCRIPT" | head -n1 | cut -d: -f1)
+rollback_line=$(grep -n 'MODE" == rollback' "$SCRIPT" | head -n1 | cut -d: -f1)
+[[ -n "$preflight_line" && -n "$rollback_line" && "$preflight_line" -lt "$rollback_line" ]] \
+    || { echo "FAIL: maybe_v01_to_v02_preflight must be invoked before rollback branch (preflight=${preflight_line:-missing} rollback=${rollback_line:-missing})" >&2; exit 1; }
+
 # 7. TURNS_SUBDOMAIN is referenced.
 grep -q 'TURNS_SUBDOMAIN' "$SCRIPT" \
     || { echo "FAIL: TURNS_SUBDOMAIN not referenced" >&2; exit 1; }
