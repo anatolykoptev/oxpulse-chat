@@ -104,41 +104,58 @@ install gate.
 
 ### 3.2 DNS requirements (v0.2.0+)
 
-v0.2.0 introduces a second A-record requirement alongside the existing
-primary record. Both records must be in place **before** running
-`install.sh` or `hydrate.sh`.
-
-**Required DNS records:**
+v0.2.0 requires **two** A-records resolving to your partner-edge VM:
 
 | Record | Value | Purpose |
 |--------|-------|---------|
 | `<your-domain>` | `<public-ip>` | Primary vhost; Caddy ACME HTTP-01 |
 | `<turns-subdomain>.<your-domain>` | `<public-ip>` | TURNS cert; Caddy ACME HTTP-01 |
 
-`<turns-subdomain>` is backend-assigned during partner registration and
-returned in the `turns_subdomain` field of the register response. The
-format is `api-<6-hex>` (example: `api-a3f8c1`). Both records point to
-the same `<public-ip>`.
+`<turns-subdomain>` is **backend-assigned** during partner registration
+and returned in the `turns_subdomain` field of the register response
+(format: `api-<6-hex>`, e.g. `api-a3f8c1`). Because it isn't known
+until `install.sh` calls `/api/partner/register`, you cannot add the
+specific record up-front. Two supported workflows:
 
-**Why this matters.** `install.sh` and `hydrate.sh` run a DNS preflight
-that resolves `<turns-subdomain>.<your-domain>` before touching
-anything else. If the record is missing or mismatched, both scripts
-abort with a clear error and make no changes. Caddy cannot issue the
-TURNS TLS certificate via ACME HTTP-01 without the A-record resolving
-to the server's public IP.
+**Option A — wildcard A-record (recommended).** Add *one* wildcard
+record on your DNS provider **before** running `install.sh`:
 
-**Propagation.** Set TTL ≤300 seconds on both records during
+```
+*.<your-domain>   A   <public-ip>
+```
+
+This covers both `<your-domain>` (via the apex A-record you already
+have) and every possible `<turns-subdomain>.<your-domain>` the backend
+may return. `install.sh` succeeds in one shot; no second DNS edit
+needed later. Works on Cloudflare, DigitalOcean DNS, AWS Route 53,
+Google Cloud DNS, and every registrar that supports wildcard records
+(almost all of them).
+
+**Option B — two-phase install.** If wildcards are not possible on
+your DNS provider:
+
+1. Run `install.sh --bake` (or `install.sh --manual-config=<path>`) so
+   the node registers but does not start Caddy. Extract
+   `TURNS_SUBDOMAIN` from `/var/lib/oxpulse-partner-edge/install.env`.
+2. Add the specific A-record
+   `<turns-subdomain>.<your-domain> → <public-ip>`.
+3. Wait for propagation (`dig +short` confirms), then run
+   `systemctl start oxpulse-partner-edge` (or the `hydrate.sh
+   --reseed` equivalent) to let Caddy issue the TURNS cert.
+
+**Propagation.** Set TTL ≤300 seconds on DNS records during
 onboarding. Verify from an external resolver before proceeding:
 
 ```bash
-dig +short <turns-subdomain>.<your-domain> @1.1.1.1
+dig +short api-x3f8c1.<your-domain> @1.1.1.1
 # must return <public-ip>
 ```
 
-**Upgrading from v0.1.** `upgrade.sh` runs the same DNS preflight on
-startup and aborts before any mutation if the turns-subdomain record is
-missing. Add the record and re-run `upgrade.sh`. The script is
-co-located with `install.sh` in `deploy/partner-edge/`.
+**Upgrading from v0.1.** `upgrade.sh` runs a DNS preflight and aborts
+before any mutation if `<turns-subdomain>.<your-domain>` does not
+resolve to this node's public IP. Add the record (or a wildcard) and
+re-run `upgrade.sh`. The script is co-located with `install.sh` in
+`deploy/partner-edge/`.
 
 ## 4. One-command install
 
