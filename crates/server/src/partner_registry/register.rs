@@ -30,6 +30,7 @@ pub struct RegistrationOk {
     #[serde(flatten)]
     pub reality: RealityCreds,
     pub turn_secret: String,
+    pub turns_subdomain: String,
     pub config_version: u64,
 }
 
@@ -53,14 +54,14 @@ type TokenRow = (
     Option<chrono::DateTime<chrono::Utc>>,
 );
 
-/// Look up a token by its sha256 hash, enforce validity, and flip the
-/// row to "used" in a single transaction. Returns the response body.
-///
-/// `domain` is not yet persisted. When per-domain routing lands, re-add
-/// it as a proper parameter and validate against `branding::domains[]`.
+/// Look up a token by its sha256 hash, enforce validity, flip the row to
+/// "used", and persist the edge-node in `partner_nodes` — all in one
+/// transaction. Returns the response body including the assigned
+/// `turns_subdomain`.
 pub async fn register(
     pool: &PgPool,
     partner_id: &str,
+    domain: &str,
     token: &str,
     public_ip: IpAddr,
 ) -> Result<RegistrationOk, RegistrationError> {
@@ -103,6 +104,10 @@ pub async fn register(
     }
 
     let node_id = format!("{partner_id}-{}", short_random_hex(6));
+    let turns_subdomain = format!(
+        "api-{}",
+        node_id.split('-').last().unwrap_or("000000")
+    );
 
     sqlx::query(
         "UPDATE partner_tokens \
@@ -115,6 +120,22 @@ pub async fn register(
     .execute(&mut *tx)
     .await?;
 
+    let turns_subdomain: String = sqlx::query_scalar(
+        "INSERT INTO partner_nodes \
+             (node_id, partner_id, domain, turns_subdomain, public_ip) \
+         VALUES ($1, $2, $3, $4, $5) \
+         ON CONFLICT (partner_id, domain) \
+             DO UPDATE SET last_seen_at = NOW() \
+         RETURNING turns_subdomain",
+    )
+    .bind(&node_id)
+    .bind(partner_id)
+    .bind(domain)
+    .bind(&turns_subdomain)
+    .bind(public_ip.to_string())
+    .fetch_one(&mut *tx)
+    .await?;
+
     tx.commit().await?;
 
     let backend_endpoint = std::env::var("PARTNER_BACKEND_ENDPOINT")
@@ -125,6 +146,7 @@ pub async fn register(
         backend_endpoint,
         reality,
         turn_secret,
+        turns_subdomain,
         config_version: crate::domains::CONFIG_VERSION,
     })
 }

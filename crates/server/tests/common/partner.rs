@@ -37,10 +37,10 @@ pub async fn setup_pool() -> Option<PgPool> {
         .await
         .expect("connect to TEST_DATABASE_URL");
     oxpulse_chat::migrate::run(&pool).await;
-    sqlx::query("TRUNCATE partner_tokens")
+    sqlx::query("TRUNCATE partner_tokens, partner_nodes")
         .execute(&pool)
         .await
-        .expect("truncate partner_tokens");
+        .expect("truncate partner_tokens, partner_nodes");
     Some(pool)
 }
 

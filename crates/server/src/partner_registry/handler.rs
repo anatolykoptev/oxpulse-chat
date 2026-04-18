@@ -104,8 +104,18 @@ pub async fn handler(
         )
             .into_response();
     }
+    if body.domain.is_empty() || body.domain.len() > 253 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "domain must be 1..=253 chars",
+                "code": "bad_domain",
+            })),
+        )
+            .into_response();
+    }
 
-    match register(pool, &body.partner_id, &body.token, ip).await {
+    match register(pool, &body.partner_id, &body.domain, &body.token, ip).await {
         Ok(ok) => {
             tracing::info!(
                 partner_id = %body.partner_id,
