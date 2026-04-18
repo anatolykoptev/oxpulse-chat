@@ -39,7 +39,11 @@ fi
 grep -q 'listener_wrappers' "$TPL" || { echo "FAIL: listener_wrappers directive missing"; exit 1; }
 grep -q 'layer4' "$TPL" || { echo "FAIL: layer4 directive missing"; exit 1; }
 grep -qE 'tls sni \{\{TURNS_SUBDOMAIN\}\}\.\{\{PARTNER_DOMAIN\}\}' "$TPL" || { echo "FAIL: @turns SNI matcher wrong"; exit 1; }
-grep -q 'proxy tcp/127.0.0.1:5349' "$TPL" || { echo "FAIL: proxy target wrong"; exit 1; }
+grep -qF 'proxy tcp/127.0.0.1:5349' "$TPL" || { echo "FAIL: proxy target wrong"; exit 1; }
 grep -q 'disable_tlsalpn_challenge' "$TPL" || { echo "FAIL: disable_tlsalpn_challenge missing in TURNS stub"; exit 1; }
+# Trailing 'tls' fallback inside listener_wrappers — load-bearing for
+# non-TURNS traffic; silent drop would break all HTTPS for PARTNER_DOMAIN.
+awk '/listener_wrappers \{/,/^    \}$/' "$TPL" | grep -qxE '[[:space:]]+tls' \
+  || { echo "FAIL: fallback 'tls' directive missing inside listener_wrappers"; exit 1; }
 
 echo "PASS: Caddyfile.tpl validates + has required l4 demux structure"
