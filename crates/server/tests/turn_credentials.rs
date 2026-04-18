@@ -216,3 +216,31 @@ async fn geo_hint_reorders_healthy_pool_by_region_prefix() {
         "region prefix match on X-Client-Region=ru must reorder ru-* before de-*, got: {urls:?}"
     );
 }
+
+#[tokio::test]
+async fn ice_transport_policy_returns_all_by_default() {
+    // Task 4.3: with no X-Client-Region header and no FORCE_RELAY_REGIONS
+    // configured, the server must emit iceTransportPolicy: "all".
+    let pool = TurnPool::new(vec![TurnServerCfg {
+        url: "turn:ru-msk.example:3478".into(),
+        region: "ru-msk".into(),
+        priority: 0,
+    }]);
+
+    let dir = common::spa_tempdir();
+    let state = AppState {
+        turn_secret: "test-secret".into(),
+        turn_urls: vec![],
+        turn_pool: pool,
+        ..common::base_state()
+    };
+    let server = TestServer::new(build_router(state, dir.path().to_str().unwrap()));
+
+    let body: serde_json::Value = server.post("/api/turn-credentials").await.json();
+
+    assert_eq!(
+        body["iceTransportPolicy"].as_str(),
+        Some("all"),
+        "default iceTransportPolicy must be \"all\" (camelCase key), got body: {body}"
+    );
+}

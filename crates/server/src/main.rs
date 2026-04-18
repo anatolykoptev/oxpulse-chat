@@ -54,6 +54,7 @@ async fn main() {
         turn_pool,
         metrics: metrics.clone(),
         metrics_token: config.metrics_token,
+        force_relay_regions: config.force_relay_regions,
     };
 
     let cors = build_cors(&config.cors_origins);

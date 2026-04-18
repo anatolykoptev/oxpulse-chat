@@ -21,6 +21,11 @@ pub struct Config {
     pub room_assets_dir: String,
     pub database_url: Option<String>,
     pub metrics_token: String,
+    /// Lowercased region hints (comma-separated via `FORCE_RELAY_REGIONS`).
+    /// When a client's geo hint prefix-matches any entry AND there is at
+    /// least one relay candidate available, the server instructs the
+    /// browser to use `iceTransportPolicy: "relay"`. Task 4.3.
+    pub force_relay_regions: Vec<String>,
 }
 
 impl Config {
@@ -42,6 +47,7 @@ impl Config {
             room_assets_dir: env("ROOM_ASSETS_DIR", "/app/room"),
             database_url: std::env::var("DATABASE_URL").ok().filter(|s| !s.is_empty()),
             metrics_token: env("METRICS_TOKEN", ""),
+            force_relay_regions: csv_lower("FORCE_RELAY_REGIONS"),
         }
     }
 }
@@ -63,6 +69,17 @@ fn csv_or(key: &str, default: &str) -> Vec<String> {
     let val = std::env::var(key).unwrap_or_else(|_| default.to_string());
     val.split(',')
         .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// Like `csv` but lowercases every entry. Used for case-insensitive
+/// region-hint matching (see `FORCE_RELAY_REGIONS`).
+fn csv_lower(key: &str) -> Vec<String> {
+    std::env::var(key)
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_ascii_lowercase())
         .filter(|s| !s.is_empty())
         .collect()
 }
