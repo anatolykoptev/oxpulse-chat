@@ -21,6 +21,8 @@ pub fn base_state() -> oxpulse_chat::router::AppState {
         stun_urls: vec![],
         pool: None,
         turn_pool: oxpulse_chat::turn_pool::TurnPool::empty(),
+        metrics: std::sync::Arc::new(oxpulse_chat::metrics::Metrics::new()),
+        metrics_token: String::new(),
     }
 }
 
@@ -62,6 +64,8 @@ impl TestApp {
             stun_urls: vec!["stun:stun.l.google.com:19302".into()],
             pool: None,
             turn_pool: oxpulse_chat::turn_pool::TurnPool::empty(),
+            metrics: std::sync::Arc::new(oxpulse_chat::metrics::Metrics::new()),
+            metrics_token: String::new(),
         };
 
         let router = oxpulse_chat::router::build_router(state, "/nonexistent");

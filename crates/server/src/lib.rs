@@ -2,6 +2,7 @@ pub mod analytics;
 pub mod branding;
 pub mod config;
 pub mod domains;
+pub mod metrics;
 pub mod migrate;
 pub mod partner_registry;
 pub mod router;
