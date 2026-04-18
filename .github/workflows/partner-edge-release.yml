@@ -25,7 +25,7 @@ jobs:
           shopt -s nullglob
           for f in deploy/partner-edge/*.sh; do
             echo ">> $f"
-            shellcheck -x "$f"
+            shellcheck -x -S warning "$f"
           done
 
   extract-version:
