@@ -71,9 +71,9 @@ async fn main() -> Result<()> {
         .await
         .context("connecting to DATABASE_URL")?;
 
-    // The server auto-applies migrations at boot. If the CLI is the first
-    // process to touch a fresh DB (dev setup), make sure the table exists.
-    commands::ensure_schema(&pool).await?;
+    // The server auto-applies migrations at boot. Probe that the table exists
+    // and give a clear error if not (instead of a confusing sqlx error).
+    commands::check_schema(&pool).await?;
 
     match cli.cmd {
         Command::IssueToken { partner, valid_for } => {
@@ -86,6 +86,6 @@ async fn main() -> Result<()> {
         } => commands::list_tokens(&pool, partner.as_deref(), include_used, include_revoked).await,
         Command::RevokeToken { token_id } => commands::revoke_token(&pool, &token_id).await,
         Command::ListNodes { partner } => commands::list_nodes(&pool, partner.as_deref()).await,
-        Command::DeactivateNode { node_id } => commands::deactivate_node(&node_id),
+        Command::DeactivateNode { node_id } => commands::deactivate_node(&pool, &node_id).await,
     }
 }

@@ -81,6 +81,16 @@ mod tests {
         assert_eq!(h.len(), 64);
     }
 
+    /// Golden-value parity test — must match partner-cli's hash_token.
+    /// If this fails, the two implementations drifted. Fix in lockstep.
+    #[test]
+    fn hash_token_matches_cli_reference() {
+        assert_eq!(
+            hash_token("test-token-fixed"),
+            "f227298136580b1377d03ef38f996e39bc442f9d1afd48069ea842af5d54cd97"
+        );
+    }
+
     #[test]
     fn generated_tokens_are_unique_and_prefixed() {
         let a = generate_raw_token();

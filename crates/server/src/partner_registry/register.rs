@@ -56,13 +56,11 @@ type TokenRow = (
 /// Look up a token by its sha256 hash, enforce validity, and flip the
 /// row to "used" in a single transaction. Returns the response body.
 ///
-/// `_domain` is currently informational — it's recorded in logs but not
-/// persisted. When per-domain routing lands, we'll add a `domains`
-/// column and validate it against `branding::domains[]`.
+/// `domain` is not yet persisted. When per-domain routing lands, re-add
+/// it as a proper parameter and validate against `branding::domains[]`.
 pub async fn register(
     pool: &PgPool,
     partner_id: &str,
-    _domain: &str,
     token: &str,
     public_ip: IpAddr,
 ) -> Result<RegistrationOk, RegistrationError> {

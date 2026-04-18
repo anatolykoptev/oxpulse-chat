@@ -3,14 +3,29 @@
 //! In-memory `HashMap<IpAddr, Vec<Instant>>` — small, process-local,
 //! forgets state on restart. MVP: upgrade to a proper limiter (e.g.
 //! `tower-governor`) when throughput metrics demand it.
+//!
+//! Map maintenance:
+//!   - Janitor runs every `JANITOR_EVERY` calls: removes entries whose
+//!     hit-window is empty (all timestamps expired).
+//!   - If the map exceeds `MAP_SIZE_CAP` entries, it is cleared entirely.
+//!     Under normal load (<100 unique partner IPs / 24h) this never fires;
+//!     it is a defence against coordinated IP-spray DoS.
 
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
 const RATE_LIMIT_MAX: usize = 10;
+
+/// Clear stale entries every this many calls.
+const JANITOR_EVERY: u64 = 100;
+/// If map grows beyond this, clear entirely (abuse guard).
+const MAP_SIZE_CAP: usize = 10_000;
+
+static JANITOR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Default)]
 struct RateWindow {
@@ -32,6 +47,22 @@ pub fn check(ip: IpAddr) -> bool {
             return true;
         }
     };
+
+    // Periodic janitor: remove entries with no recent hits.
+    let n = JANITOR_COUNTER.fetch_add(1, Ordering::Relaxed);
+    if n.is_multiple_of(JANITOR_EVERY) {
+        guard.retain(|_, w| !w.hits.is_empty());
+    }
+
+    // Abuse guard: clear on overflow.
+    if guard.len() >= MAP_SIZE_CAP {
+        tracing::warn!(
+            cap = MAP_SIZE_CAP,
+            "partner_registry: rate-limit map cap exceeded, clearing (possible IP spray)"
+        );
+        guard.clear();
+    }
+
     let entry = guard.entry(ip).or_default();
     entry.hits.retain(|t| *t >= cutoff);
     if entry.hits.len() >= RATE_LIMIT_MAX {

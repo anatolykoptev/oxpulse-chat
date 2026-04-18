@@ -12,25 +12,18 @@ use uuid::Uuid;
 const ISSUE_TOKEN_WARNING: &str =
     "!! This is the ONLY time this raw token will be shown. Copy it now. !!";
 
-/// Ensure the `partner_tokens` table exists. Duplicates the server-side
-/// migration just enough to make the CLI self-sufficient on a fresh DB.
-pub async fn ensure_schema(pool: &PgPool) -> Result<()> {
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS partner_tokens ( \
-            token_id UUID PRIMARY KEY DEFAULT gen_random_uuid(), \
-            partner_id TEXT NOT NULL, \
-            token_hash TEXT NOT NULL UNIQUE, \
-            expires_at TIMESTAMPTZ NOT NULL, \
-            used_at TIMESTAMPTZ, \
-            used_from_ip TEXT, \
-            node_id TEXT, \
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), \
-            revoked_at TIMESTAMPTZ \
-        )",
-    )
-    .execute(pool)
-    .await
-    .context("create partner_tokens table")?;
+/// Verify that the server's migrations have been applied by probing for the
+/// `partner_tokens` table. Gives a clear error message if the table is absent.
+///
+/// The CLI does NOT maintain its own schema copy — run the server once
+/// (`cargo run -p oxpulse-chat`) to apply migrations before using the CLI.
+pub async fn check_schema(pool: &PgPool) -> Result<()> {
+    sqlx::query("SELECT 1 FROM partner_tokens LIMIT 1")
+        .execute(pool)
+        .await
+        .map_err(|e| anyhow::anyhow!(
+            "partner_tokens table not found — run `cargo run -p oxpulse-chat` once to apply migrations ({e})"
+        ))?;
     Ok(())
 }
 
@@ -182,13 +175,26 @@ pub async fn list_nodes(pool: &PgPool, partner: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-pub fn deactivate_node(node_id: &str) -> Result<()> {
-    // MVP: node state is tracked only via used tokens. A proper implementation
-    // would add a `deactivated_at` column; for now, tell the operator what to run.
-    println!(
-        "deactivate-node is not yet implemented for: {node_id}\n\
-         Workaround: UPDATE partner_tokens SET revoked_at = NOW() WHERE node_id = '{node_id}';\n\
-         (Follow-up: add `deactivated_at` column + /api/partner/heartbeat enforcement.)"
+pub async fn deactivate_node(_pool: &PgPool, _node_id: &str) -> anyhow::Result<()> {
+    anyhow::bail!(
+        "deactivate-node not yet implemented — tracking in-progress.\n\
+        Workaround: UPDATE partner_tokens SET revoked_at = NOW() WHERE node_id = $1;\n\
+        (See follow-up: add `deactivated_at` column + proper CLI path.)"
     );
-    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Golden-value parity test — must match server's partner_registry::creds::hash_token.
+    /// REFERENCE: sha256("test-token-fixed")
+    /// If this fails, the CLI's hash_token drifted from the server's copy. Fix in lockstep.
+    #[test]
+    fn hash_token_matches_server_reference() {
+        assert_eq!(
+            hash_token("test-token-fixed"),
+            "f227298136580b1377d03ef38f996e39bc442f9d1afd48069ea842af5d54cd97"
+        );
+    }
 }

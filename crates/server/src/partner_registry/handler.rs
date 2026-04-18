@@ -1,9 +1,19 @@
 //! HTTP surface for `POST /api/partner/register`.
 //!
 //! Owns the request/response wire format concerns: JSON validation,
-//! per-IP rate limiting, client IP extraction from X-Forwarded-For.
+//! per-IP rate limiting, client IP extraction.
 //! Business logic lives in `register::register()`, rate limiting in
 //! `rate_limit::check()`.
+//!
+//! Client-IP extraction priority:
+//!   1. `X-Forwarded-For` first hop — IF `TRUST_FORWARDED_HEADERS=1` env set.
+//!   2. Body `public_ip` field — always trusted (edge explicitly tells us).
+//!   3. Fall back to `127.0.0.1` (rate limit still enforced per the fallback).
+//!
+//! TRUST_FORWARDED_HEADERS must be set ONLY when a known reverse proxy
+//! (Caddy in prod) is always in front. If the container is reachable
+//! directly, attackers could spoof XFF to cause rate-limit DoS on a
+//! victim IP.
 
 use std::net::IpAddr;
 
@@ -16,8 +26,12 @@ use super::rate_limit;
 use super::register::{register, RegisterRequest};
 use crate::router::AppState;
 
-/// Extract the client IP. Trusts the first `X-Forwarded-For` hop (Caddy
-/// in front in prod). Falls back to the body-provided `public_ip`.
+/// Extract the client IP.
+///
+/// Trusts `X-Forwarded-For` only when `TRUST_FORWARDED_HEADERS=1` is set in
+/// the environment (indicating a known reverse proxy like Caddy is always in
+/// front). Otherwise uses the body-provided `public_ip`, falling back to
+/// `127.0.0.1` so rate-limit enforcement still applies on loopback calls.
 ///
 /// We intentionally do not use `ConnectInfo<SocketAddr>` here: the server
 /// binary uses plain `axum::serve(listener, app)` without the connect-info
@@ -25,15 +39,15 @@ use crate::router::AppState;
 /// sends `public_ip` in the body (best-effort from `curl ifconfig.me`)
 /// so direct requests still have a usable source IP for logging and
 /// rate-limit keying.
-fn client_ip(headers: &HeaderMap, body_ip: Option<IpAddr>) -> Option<IpAddr> {
-    if let Some(v) = headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
-        if let Some(first) = v.split(',').next().map(str::trim) {
-            if let Ok(ip) = first.parse::<IpAddr>() {
-                return Some(ip);
+fn client_ip(headers: &HeaderMap, body_ip: Option<IpAddr>) -> IpAddr {
+    if std::env::var("TRUST_FORWARDED_HEADERS").as_deref() == Ok("1") {
+        if let Some(xff) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+            if let Some(first) = xff.split(',').next().and_then(|s| s.trim().parse().ok()) {
+                return first;
             }
         }
     }
-    body_ip
+    body_ip.unwrap_or(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST))
 }
 
 /// Axum handler for `POST /api/partner/register`.
@@ -56,16 +70,7 @@ pub async fn handler(
             .into_response();
     };
 
-    let Some(ip) = client_ip(&headers, body.public_ip) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": "could not determine client IP",
-                "code": "missing_ip",
-            })),
-        )
-            .into_response();
-    };
+    let ip = client_ip(&headers, body.public_ip);
 
     if !rate_limit::check(ip) {
         tracing::warn!(%ip, "partner_registry: rate limit exceeded");
@@ -100,7 +105,7 @@ pub async fn handler(
             .into_response();
     }
 
-    match register(pool, &body.partner_id, &body.domain, &body.token, ip).await {
+    match register(pool, &body.partner_id, &body.token, ip).await {
         Ok(ok) => {
             tracing::info!(
                 partner_id = %body.partner_id,
@@ -135,23 +140,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn client_ip_prefers_xff() {
+    fn client_ip_falls_back_to_body_when_xff_not_trusted() {
+        // TRUST_FORWARDED_HEADERS is not set in test env, so XFF is ignored.
         let mut h = HeaderMap::new();
         h.insert("x-forwarded-for", "203.0.113.42, 10.0.0.1".parse().unwrap());
-        let ip = client_ip(&h, Some("127.0.0.1".parse().unwrap()));
-        assert_eq!(ip, Some("203.0.113.42".parse().unwrap()));
+        let ip = client_ip(&h, Some("198.51.100.7".parse().unwrap()));
+        assert_eq!(ip, "198.51.100.7".parse::<IpAddr>().unwrap());
     }
 
     #[test]
     fn client_ip_falls_back_to_body() {
         let h = HeaderMap::new();
         let ip = client_ip(&h, Some("198.51.100.7".parse().unwrap()));
-        assert_eq!(ip, Some("198.51.100.7".parse().unwrap()));
+        assert_eq!(ip, "198.51.100.7".parse::<IpAddr>().unwrap());
     }
 
     #[test]
-    fn client_ip_returns_none_when_no_source() {
+    fn client_ip_returns_localhost_when_no_source() {
         let h = HeaderMap::new();
-        assert_eq!(client_ip(&h, None), None);
+        assert_eq!(
+            client_ip(&h, None),
+            IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)
+        );
     }
 }
