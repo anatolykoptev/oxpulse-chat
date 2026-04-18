@@ -1,14 +1,17 @@
 use std::time::Duration;
 
 use axum::extract::ws::WebSocketUpgrade;
-use axum::extract::{Path, State};
+use axum::extract::{ConnectInfo, Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_SECURITY_POLICY, CONTENT_TYPE, X_FRAME_OPTIONS};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
+use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
+
+use crate::rate_limit::{make_limiter, rate_limit_middleware};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -69,10 +72,28 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
                 HeaderValue::from_static("public, max-age=31536000, immutable"),
             ));
 
+    // Per-IP rate limiters (Task 4.1): one bucket-map per endpoint so a
+    // /api/event flood cannot starve /api/turn-credentials and vice-versa.
+    // Built once per router so state is shared across every request.
+    let turn_credentials_limiter = make_limiter(30);
+    let event_limiter = make_limiter(60);
+
     Router::new()
         .route("/ws/call/{room_id}", get(ws_call))
-        .route("/api/turn-credentials", post(turn_credentials))
-        .route("/api/event", post(crate::analytics::ingest))
+        .route(
+            "/api/turn-credentials",
+            post(turn_credentials).layer(from_fn_with_state(
+                turn_credentials_limiter,
+                rate_limit_middleware,
+            )),
+        )
+        .route(
+            "/api/event",
+            post(crate::analytics::ingest).layer(from_fn_with_state(
+                event_limiter,
+                rate_limit_middleware,
+            )),
+        )
         .route("/api/health", get(health))
         .route("/metrics", get(metrics_handler))
         .route("/api/branding", get(crate::branding::handler))
@@ -121,8 +142,17 @@ async fn ws_call(
     ws: WebSocketUpgrade,
     Path(room_id): Path<String>,
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    connect_info: ConnectInfo<std::net::SocketAddr>,
 ) -> impl IntoResponse {
-    oxpulse_signaling::ws_call_handler(ws, Path(room_id), State(state.rooms)).await
+    oxpulse_signaling::ws_call_handler(
+        ws,
+        Path(room_id),
+        State(state.rooms),
+        headers,
+        connect_info,
+    )
+    .await
 }
 
 /// Extract a lowercased geo hint from client headers.

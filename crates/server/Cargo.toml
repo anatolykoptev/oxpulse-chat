@@ -33,6 +33,7 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 regex = "1"
 prometheus = { version = "0.13", default-features = false }
+governor = "0.6"
 
 [dev-dependencies]
 axum-test = "20"
