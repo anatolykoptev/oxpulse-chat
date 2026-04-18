@@ -77,7 +77,7 @@ pub async fn register(
         return Err(RegistrationError::TurnNotConfigured);
     }
 
-    // Required: public host:port at which partner-edge xray-client dials krolik xray-reality.
+    // Required: public host:port at which partner-edge xray-client dials the operator-side xray-reality endpoint.
     // hydrate.sh splits on : — both parts must be present and non-empty.
     let backend_endpoint =
         std::env::var("PARTNER_BACKEND_ENDPOINT").map_err(|_| RegistrationError::BackendEndpointNotConfigured)?;
