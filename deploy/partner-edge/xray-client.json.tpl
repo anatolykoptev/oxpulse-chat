@@ -31,7 +31,7 @@
             "users": [
               {
                 "id": "{{REALITY_UUID}}",
-                "encryption": "none",
+                "encryption": "{{REALITY_ENCRYPTION}}",
                 "flow": ""
               }
             ]
