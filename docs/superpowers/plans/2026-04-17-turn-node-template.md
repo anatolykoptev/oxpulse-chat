@@ -2,12 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the manual step-by-step `docs/partners/onboarding.md` procedure with a single idempotent installer that turns any fresh Debian/Ubuntu or RHEL-family VM into a production-grade oxpulse-chat TURN relay. The first deployment target is the partner's test VM `call.rvpn.online` (70.34.243.184, CentOS Stream 9). Once validated there, the same artifact is cloned/snapshotted across the partner's regional fleet; per-node values live in a single editable env-file so a snapshot → clone → edit-env → restart flow works without image rebakes.
+**Goal:** Replace the manual step-by-step `docs/partners/onboarding.md` procedure with a single idempotent installer that turns any fresh Debian/Ubuntu or RHEL-family VM into a production-grade oxpulse-chat TURN relay. The first deployment target is the partner's test VM `call.rvpn.online` (<rvpn-public-ip>, CentOS Stream 9). Once validated there, the same artifact is cloned/snapshotted across the partner's regional fleet; per-node values live in a single editable env-file so a snapshot → clone → edit-env → restart flow works without image rebakes.
 
 **Architecture:**
 - Native coturn via distro package manager + systemd (not Docker — UDP relay 49152-65535 through container netns is a known source of jitter; LiveKit, BigBlueButton and Matrix all ship native). One bash installer in `deploy/turn-node/install.sh` autodetects distro (`/etc/os-release` → `ID` + `ID_LIKE`), installs `coturn` + `chrony` + firewall tool, lays down a systemd `ExecStartPre` oneshot that renders `/etc/turnserver.conf` from a template using values in `/etc/default/oxpulse-turn`, and opens firewall ports (UDP 3478/3479, TCP 3478, UDP 49152-65535).
-- `TURN_SECRET` is **shared across the entire partner fleet** (matches operator-side `TURN_SECRET` in `~/deploy/krolik-server/.env`); `PUBLIC_IPV4` and optional `PRIVATE_IPV4` are **per-node** (auto-detected with override). Template (`turnserver.conf.tmpl`) is checked into the repo; rendered `/etc/turnserver.conf` is generated at service start, so the same VM snapshot can be cloned and re-keyed by editing `/etc/default/oxpulse-turn` — no rebuild.
-- Signaling server (`oxpulse-chat`) stays centralized. After each node is provisioned, the installer prints the exact registration line (`region:priority:turn:host:port?transport=udp`) that the operator appends to `TURN_SERVERS` in `~/deploy/krolik-server/.env`. Nothing on the partner node talks to our signaling host; the coturn HMAC loop is the entire contract.
+- `TURN_SECRET` is **shared across the entire partner fleet** (matches operator-side `TURN_SECRET` in `$OPERATOR_DEPLOY/.env`); `PUBLIC_IPV4` and optional `PRIVATE_IPV4` are **per-node** (auto-detected with override). Template (`turnserver.conf.tmpl`) is checked into the repo; rendered `/etc/turnserver.conf` is generated at service start, so the same VM snapshot can be cloned and re-keyed by editing `/etc/default/oxpulse-turn` — no rebuild.
+- Signaling server (`oxpulse-chat`) stays centralized. After each node is provisioned, the installer prints the exact registration line (`region:priority:turn:host:port?transport=udp`) that the operator appends to `TURN_SERVERS` in `$OPERATOR_DEPLOY/.env`. Nothing on the partner node talks to our signaling host; the coturn HMAC loop is the entire contract.
 
 **Tech Stack:** Bash (POSIX-safe, shellcheck-clean), coturn 4.x (EPEL on RHEL / default on Debian), systemd drop-ins + oneshot units, chrony (NTP), firewalld (RHEL) / ufw (Debian) / nftables (fallback), `envsubst` (gettext) for template rendering, `turnutils_stunclient` for post-install smoke test.
 
@@ -68,7 +68,7 @@ Unchanged but referenced by the plan:
 
 Run:
 ```bash
-cd /home/krolik/src/oxpulse-chat
+cd $OPERATOR_WORKSPACE
 git status --short
 git branch --show-current
 ```
@@ -83,14 +83,14 @@ Expected: `ID="centos"` + `x86_64`. This is the test VM the plan must end up wor
 
 Run:
 ```bash
-grep '^TURN_SECRET=' ~/deploy/krolik-server/.env | cut -d= -f2-
+grep '^TURN_SECRET=' $OPERATOR_DEPLOY/.env | cut -d= -f2-
 ```
 Keep the value in your shell environment for Task 7 (`export OPERATOR_TURN_SECRET=...`). It is **never** written to files under `deploy/turn-node/` — the example file uses `<REPLACE_ME>` and the real value lands only in `/etc/default/oxpulse-turn` on the partner host.
 
 - [ ] **Step 4: Create feature branch**
 
 ```bash
-cd /home/krolik/src/oxpulse-chat
+cd $OPERATOR_WORKSPACE
 git checkout -b feat/turn-node-template
 ```
 
@@ -105,7 +105,7 @@ git checkout -b feat/turn-node-template
 - [ ] **Step 1: Create directory structure**
 
 ```bash
-cd /home/krolik/src/oxpulse-chat
+cd $OPERATOR_WORKSPACE
 mkdir -p deploy/turn-node/templates deploy/turn-node/systemd deploy/turn-node/scripts
 ```
 
@@ -289,7 +289,7 @@ Expected: `public=<your public IP> private=` (or a private if you're behind NAT)
 scp deploy/turn-node/scripts/autodetect-ip.sh rvpn:/tmp/
 ssh rvpn 'PUBLIC_IPV4= PRIVATE_IPV4= ; source /tmp/autodetect-ip.sh; echo "public=$PUBLIC_IPV4 private=$PRIVATE_IPV4"'
 ```
-Expected: `public=70.34.243.184 private=<internal>` (Vultr uses 1:1 NAT, so a private is expected).
+Expected: `public=<rvpn-public-ip> private=<internal>` (Vultr uses 1:1 NAT, so a private is expected).
 If the private is empty on rvpn, that's still acceptable — coturn will work without `external-ip` slash-syntax on bare metal.
 
 - [ ] **Step 5: Override path works**
@@ -849,7 +849,7 @@ shellcheck -x deploy/turn-node/healthcheck.sh
 
 ```bash
 # Keep secret in env only — never on the command line (ps/history).
-read -rsp "Paste TURN_SECRET from ~/deploy/krolik-server/.env: " TURN_SECRET; echo
+read -rsp "Paste TURN_SECRET from $OPERATOR_DEPLOY/.env: " TURN_SECRET; echo
 export TURN_SECRET
 
 rsync -av --delete deploy/turn-node/ rvpn:/root/oxpulse-turn-node/
@@ -873,10 +873,10 @@ Expected: 7 OK lines, exit 0, registration line printed. If any FAIL, stop and d
 
 ```bash
 # nc reachability
-nc -zv -u 70.34.243.184 3478 || true     # UDP — nc prints 'open' or times out; harmless if flaky
-nc -zv    70.34.243.184 3478             # TCP — should print 'succeeded'
+nc -zv -u <rvpn-public-ip> 3478 || true     # UDP — nc prints 'open' or times out; harmless if flaky
+nc -zv    <rvpn-public-ip> 3478             # TCP — should print 'succeeded'
 # STUN probe from outside
-turnutils_stunclient 70.34.243.184
+turnutils_stunclient <rvpn-public-ip>
 ```
 Expected: `turnutils_stunclient` prints a Mapped Address equal to **your** public IP (that's STUN working — the server is echoing your observed IP).
 
@@ -900,20 +900,20 @@ git commit -m "feat(turn-node): healthcheck script + validated on call.rvpn.onli
 ## Task 7: Register the node in signaling + end-to-end credential test
 
 **Files:**
-- Modify: `~/deploy/krolik-server/.env` (add to `TURN_SERVERS` — **operator side, not repo**)
+- Modify: `$OPERATOR_DEPLOY/.env` (add to `TURN_SERVERS` — **operator side, not repo**)
 
 This task validates the full contract: a real client hitting our signaling gets credentials that actually authenticate against the new relay.
 
 - [ ] **Step 1: Inspect current `TURN_SERVERS`**
 
 ```bash
-grep '^TURN_SERVERS=' ~/deploy/krolik-server/.env || echo "TURN_SERVERS is unset"
+grep '^TURN_SERVERS=' $OPERATOR_DEPLOY/.env || echo "TURN_SERVERS is unset"
 ```
 Note the current value (we're appending, not replacing).
 
 - [ ] **Step 2: Append the new relay**
 
-Edit `~/deploy/krolik-server/.env`:
+Edit `$OPERATOR_DEPLOY/.env`:
 ```
 TURN_SERVERS=<existing-value>,ru-test:100:turn:call.rvpn.online:3478?transport=udp
 ```
@@ -925,7 +925,7 @@ TURN_SERVERS=ru-test:100:turn:call.rvpn.online:3478?transport=udp
 - [ ] **Step 3: Recycle signaling**
 
 ```bash
-cd ~/deploy/krolik-server
+cd $OPERATOR_DEPLOY
 docker compose up -d --force-recreate oxpulse-chat
 ```
 Expected: container `oxpulse-chat` restarts, `docker logs oxpulse-chat 2>&1 | head -30` shows a TURN pool line referencing the new URL (log format: see `crates/server/src/main.rs` startup logs).
@@ -944,7 +944,7 @@ Expected: JSON with `username`, `credential`, `ttl`, `ice_servers[]`. The new UR
 resp=$(curl -sX POST https://oxpulse.chat/api/turn-credentials)
 user=$(jq -r .username <<<"$resp")
 pass=$(jq -r .credential <<<"$resp")
-turnutils_uclient -u "$user" -w "$pass" -v -p 3478 70.34.243.184
+turnutils_uclient -u "$user" -w "$pass" -v -p 3478 <rvpn-public-ip>
 ```
 Expected: `turnutils_uclient` output ends with `...all tests succeeded.` (or equivalent — this command sends a TURN Allocate + permission + send-indication and prints `"success"` counts). A 401 here means the HMAC secret on the relay doesn't match the operator's — STOP and re-check `/etc/default/oxpulse-turn` on rvpn.
 
@@ -953,9 +953,9 @@ Expected: `turnutils_uclient` output ends with `...all tests succeeded.` (or equ
 ```bash
 # Remove the ru-test entry from TURN_SERVERS (this was a test run; production priority
 # will be assigned by the partner when they roll out real nodes).
-# Edit ~/deploy/krolik-server/.env to drop ',ru-test:100:...' from TURN_SERVERS,
+# Edit $OPERATOR_DEPLOY/.env to drop ',ru-test:100:...' from TURN_SERVERS,
 # then:
-cd ~/deploy/krolik-server
+cd $OPERATOR_DEPLOY
 docker compose up -d --force-recreate oxpulse-chat
 ```
 
@@ -1185,7 +1185,7 @@ act -l 2>/dev/null || echo "act not installed, skipping local dry-run"
 (cd /tmp && rm -rf turn-node-test && mkdir turn-node-test && cd turn-node-test && \
   tar -czf "turn-node-0.0.0.tar.gz" \
     --transform "s,^deploy/turn-node,turn-node-0.0.0," \
-    -C /home/krolik/src/oxpulse-chat deploy/turn-node && \
+    -C $OPERATOR_WORKSPACE deploy/turn-node && \
   tar -tzf turn-node-0.0.0.tar.gz | head -20)
 ```
 Expected: tarball contents live under `turn-node-0.0.0/...` (not `deploy/turn-node/...`) — this keeps extraction clean for partners.
@@ -1508,7 +1508,7 @@ gh pr create --title "feat(turn-node): one-command partner installer + release-p
 - New `deploy/turn-node/` directory with idempotent multi-distro installer (Debian/Ubuntu + RHEL family autodetect)
 - Native coturn + systemd (no Docker) — template renders `/etc/turnserver.conf` from per-node env
 - Autodetect public/private IPv4 with clean override path; clone-safe via `/etc/default/oxpulse-turn`
-- Validated end-to-end on CentOS Stream 9 (`call.rvpn.online`, 70.34.243.184)
+- Validated end-to-end on CentOS Stream 9 (`call.rvpn.online`, <rvpn-public-ip>)
 - **release-please** wired for the `turn-node` component — Conventional Commits bump version, open Release PR, tag on merge
 - **`turn-node-release.yml`** workflow packages + SHA256 + attaches assets to the GitHub Release on tag push
 - **`oxpulse-turn-upgrade`** partner-side tool: pulls from GH Releases API, verifies SHA256, backs up + rollback on failure; dormant systemd timer for opt-in nightly checks

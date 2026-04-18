@@ -256,7 +256,7 @@ paths depending on whether hot-reload has shipped:
 
 **Today (pre-Task-2.6):**
 1. Operator appends the entry to the `TURN_SERVERS` env var in
-   `~/deploy/krolik-server/.env` (comma-separated).
+   `$OPERATOR_DEPLOY/.env` (comma-separated).
 2. Operator runs
    `docker compose up -d --force-recreate oxpulse-chat`.
 3. Brief drop in accept-new-call capacity while the container cycles

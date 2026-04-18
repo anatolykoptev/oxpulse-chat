@@ -443,7 +443,7 @@ func envOr(key, def string) string {
 
 - [ ] **Step 3: Copy auth.go from go-nerv**
 
-Copy `/home/krolik/src/go-nerv/internal/admin/auth.go` into `internal/admin/auth.go`.
+Copy `$HOME/src/go-nerv/internal/admin/auth.go` into `internal/admin/auth.go`.
 
 Change the package constants at the top. The file is self-contained (HMAC session, requireAuth middleware, login/logout handlers). No changes needed except package name should already be `admin`.
 
@@ -805,7 +805,7 @@ Design: same dark theme as go-nerv (CSS variables, sidebar, no framework). Use C
 3. **Viral** — funnel: page_view → room_created → call_connected → repeat users. This is THE metric.
 4. **Devices** — top 50 devices by activity (truncated IDs), rooms created, calls made
 
-Layout pattern: copy from `/home/krolik/src/go-nerv/internal/admin/templates/layout.html` and adapt sidebar links.
+Layout pattern: copy from `$HOME/src/go-nerv/internal/admin/templates/layout.html` and adapt sidebar links.
 
 Template approach: use `{{define "layout"}}...{{template "content" .}}...{{end}}` pattern from go-nerv.
 
@@ -904,7 +904,7 @@ git add -A && git commit -m "feat: dashboard templates — overview, calls, vira
 
 **Files:**
 - Create: `~/src/oxpulse-admin/Dockerfile`
-- Modify: `~/deploy/krolik-server/compose/apps.yml` — add oxpulse-admin service
+- Modify: `$OPERATOR_DEPLOY/compose/apps.yml` — add oxpulse-admin service
 
 - [ ] **Step 1: Create Dockerfile**
 
@@ -928,7 +928,7 @@ CMD ["oxpulse-admin"]
 ```yaml
   oxpulse-admin:
     build:
-      context: /home/krolik/src/oxpulse-admin
+      context: $HOME/src/oxpulse-admin
       dockerfile: Dockerfile
     container_name: oxpulse-admin
     restart: unless-stopped
@@ -963,7 +963,7 @@ This enables analytics storage in the shared oxpulse database.
 - [ ] **Step 4: Build and deploy both**
 
 ```bash
-cd ~/deploy/krolik-server
+cd $OPERATOR_DEPLOY
 docker compose build oxpulse-chat oxpulse-admin
 docker compose up -d --no-deps --force-recreate oxpulse-chat oxpulse-admin
 ```
@@ -998,7 +998,7 @@ Add `8908 | oxpulse-admin`.
 - [ ] **Step 8: Commit deploy changes**
 
 ```bash
-cd ~/deploy/krolik-server && git add compose/apps.yml
+cd $OPERATOR_DEPLOY && git add compose/apps.yml
 git commit -m "deploy: add oxpulse-admin dashboard on port 8908"
 ```
 
@@ -1046,7 +1046,7 @@ Update the metrics section:
 
 ```bash
 cd ~/src/oxpulse-chat/web && npm run build
-cd ~/deploy/krolik-server && docker compose build oxpulse-chat && docker compose up -d --no-deps --force-recreate oxpulse-chat
+cd $OPERATOR_DEPLOY && docker compose build oxpulse-chat && docker compose up -d --no-deps --force-recreate oxpulse-chat
 ```
 
 - [ ] **Step 4: Commit all**

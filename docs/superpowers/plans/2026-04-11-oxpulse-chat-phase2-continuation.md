@@ -6,7 +6,7 @@
 
 **Goal:** Finish production hardening for oxpulse-chat partner launch. TurnPool integration, metrics, alerts, abuse protection, load testing, launch checklist.
 
-**Branch:** main. **Workspace:** `/home/krolik/src/oxpulse-chat`. **Deploy:** `~/deploy/krolik-server`.
+**Branch:** main. **Workspace:** `$OPERATOR_WORKSPACE`. **Deploy:** `$OPERATOR_DEPLOY`.
 
 **Tech stack:** Rust 1.88 + Axum 0.8 + tower-http 0.6 + SQLx + DashMap + tokio; SvelteKit 5 + TypeScript; PostgreSQL 17; Dozor for monitoring; Prometheus text format for /metrics.
 
@@ -16,7 +16,7 @@
 
 When opening this plan in a fresh session, do these first:
 
-1. `cd /home/krolik/src/oxpulse-chat`
+1. `cd $OPERATOR_WORKSPACE`
 2. `git log --oneline main -15` — confirm you see these recent commits in order:
    - `aafedc7` fix(server): don't panic on missing index.html
    - `547a35f` feat(server): TurnPool skeleton with config parsing
