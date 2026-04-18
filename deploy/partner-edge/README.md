@@ -63,7 +63,7 @@ small JSON file from OxPulse ops out-of-band and passes it to
 ```json
 {
   "node_id": "rvpn-call1",
-  "backend_endpoint": "krolik.oxpulse.chat:5349",
+  "backend_endpoint": "<operator-backend>:5349",
   "turn_secret": "<shared-hmac-secret>",
   "reality_uuid": "<uuid-v4>",
   "reality_public_key": "<base64-reality-pubkey>",

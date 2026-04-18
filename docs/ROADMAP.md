@@ -48,7 +48,7 @@ Open-source encrypted messenger with video calls. Works in Russia, offline, and 
 - [x] Standalone Rust binary (<30MB Docker image, ~500 LOC)
 - [x] Caddy reverse proxy with automatic SSL (Let's Encrypt)
 - [x] VLESS/Reality tunnel for Russian users (DPI-invisible)
-- [x] Coturn relay on Hostiman (media stays in Russia)
+- [x] Coturn relay on a Russian VPS (media stays in Russia)
 - [x] Brotli + gzip compression
 - [x] Immutable cache headers for hashed assets
 - [x] Security headers: CSP, X-Frame-Options, HSTS
