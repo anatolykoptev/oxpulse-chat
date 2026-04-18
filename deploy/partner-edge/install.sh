@@ -32,6 +32,9 @@ TOKEN=""
 TUNNEL=vless
 MANUAL_CONFIG=""
 IMAGE_VERSION="${OXPULSE_IMAGE_VERSION:-latest}"
+# v0.2.0-rc1 placeholder: real per-clone value comes from /api/partner/register
+# response rendered by hydrate.sh in Phase 6 (Task 5.2).
+TURNS_SUBDOMAIN="${TURNS_SUBDOMAIN:-turns}"
 DRY_RUN=0
 
 usage() {
@@ -360,8 +363,24 @@ if [[ $DRY_RUN -eq 0 ]]; then
 		curl -fsSL "$REPO_RAW/upgrade.sh" -o "$PREFIX_SBIN/oxpulse-partner-edge-upgrade"
 		chmod 0755 "$PREFIX_SBIN/oxpulse-partner-edge-upgrade"
 	fi
+	# Cert-watch units (Task 2A.5): inotify path unit + oneshot signal service.
+	# Substitute {{TURNS_SUBDOMAIN}} + {{PARTNER_DOMAIN}} before install.
+	for unit in oxpulse-partner-cert-watch.path oxpulse-partner-cert-watch.service; do
+		local_src=""
+		if [[ -n "$src_dir" && -f "$src_dir/systemd/${unit}" ]]; then
+			local_src="$src_dir/systemd/${unit}"
+		else
+			curl -fsSL "$REPO_RAW/systemd/${unit}" -o "/tmp/${unit}.fetched"
+			local_src="/tmp/${unit}.fetched"
+		fi
+		sed -e "s|{{TURNS_SUBDOMAIN}}|${TURNS_SUBDOMAIN}|g" -e "s|{{PARTNER_DOMAIN}}|${DOMAIN}|g" \
+			"$local_src" > "/tmp/${unit}.rendered"
+		install -m 0644 "/tmp/${unit}.rendered" "$SYSTEMD_DIR/${unit}"
+		rm -f "/tmp/${unit}.rendered" "/tmp/${unit}.fetched"
+	done
 	systemctl daemon-reload
 	systemctl enable --now oxpulse-partner-edge.service
+	systemctl enable --now oxpulse-partner-cert-watch.path
 else
 	warn "  [dry-run] skipping systemd install"
 fi
