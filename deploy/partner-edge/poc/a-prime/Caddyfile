@@ -1,26 +1,21 @@
 {
-    # Local CA — no ACME contact needed
     local_certs
     admin localhost:2019
     servers {
         protocols h1 h2
-    }
-}
-
-(l4_sni_demux) {
-    listener_wrappers {
-        layer4 {
-            @turns tls sni turns.example.test
-            route @turns {
-                proxy tcp/coturn.internal:5349
+        listener_wrappers {
+            layer4 {
+                @turns tls sni turns.example.test
+                route @turns {
+                    proxy tcp/coturn.internal:5349
+                }
             }
+            tls
         }
-        tls
     }
 }
 
 example.test {
-    import l4_sni_demux
     tls internal
 
     header {
