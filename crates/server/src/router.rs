@@ -24,6 +24,9 @@ pub struct AppState {
     pub metrics: std::sync::Arc<crate::metrics::Metrics>,
     /// If empty, /metrics returns 401 for all requests (endpoint disabled).
     pub metrics_token: String,
+    /// Lowercased region hints that force `iceTransportPolicy: "relay"`
+    /// when a client's geo hint prefix-matches. See Task 4.3.
+    pub force_relay_regions: Vec<String>,
 }
 
 static SPA_INDEX: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -196,7 +199,7 @@ fn turn_credentials_inner(state: &AppState, hint: Option<&str>) -> axum::respons
     }
     // Prefer the dynamic pool when at least one server is healthy. Fall
     // back to the static `turn_urls` list (backward compat) when the pool
-    // is empty OR every server is currently unhealthy.
+    // is empty OR every pool server is currently unhealthy.
     let healthy = state.turn_pool.healthy();
     let turn_urls: Vec<String> = if !healthy.is_empty() {
         order_by_geo(healthy, hint)
@@ -206,14 +209,54 @@ fn turn_credentials_inner(state: &AppState, hint: Option<&str>) -> axum::respons
     } else {
         state.turn_urls.clone()
     };
-    let creds = oxpulse_turn::generate_credentials(
-        &state.turn_secret,
-        "chat-user",
-        Duration::from_secs(86400),
-        &turn_urls,
-        &state.stun_urls,
-    );
+    // Task 4.3: decide `iceTransportPolicy` based on relay availability and
+    // configured force-relay regions. Compute BEFORE the struct construction
+    // because we need to know whether a relay is actually reachable.
+    let no_relay_available = turn_urls.is_empty();
+    let policy = decide_ice_transport_policy(no_relay_available, hint, &state.force_relay_regions);
+    let creds = oxpulse_turn::TurnCredentials {
+        ice_transport_policy: policy,
+        ..oxpulse_turn::generate_credentials(
+            &state.turn_secret,
+            "chat-user",
+            Duration::from_secs(86400),
+            &turn_urls,
+            &state.stun_urls,
+        )
+    };
     (StatusCode::OK, Json(creds)).into_response()
+}
+
+/// Pure decision function for `iceTransportPolicy`. Factored out so it can
+/// be unit-tested without spinning up the HTTP harness.
+///
+/// Rules (Task 4.3):
+/// - If no relay server is available at all → `"all"` (forcing relay would
+///   break the call — we always degrade open rather than break).
+/// - Else if the client's `hint` prefix-matches any entry in
+///   `force_regions` → `"relay"` (operator wants to hide client IPs for
+///   this region).
+/// - Else → `"all"` (default, preserves existing behaviour).
+///
+/// Matching is case-insensitive on both sides. `force_regions` entries are
+/// already lowercased by `Config::from_env`; the `hint` is lowercased by
+/// `geo_hint`. We still defensively `to_ascii_lowercase` the hint here so
+/// callers can't pass a mixed-case value by accident.
+pub fn decide_ice_transport_policy(
+    no_relay_available: bool,
+    hint: Option<&str>,
+    force_regions: &[String],
+) -> &'static str {
+    if no_relay_available {
+        return "all";
+    }
+    let Some(hint) = hint else { return "all" };
+    let hint_lc = hint.to_ascii_lowercase();
+    if force_regions.iter().any(|r| hint_lc.starts_with(r.as_str())) {
+        "relay"
+    } else {
+        "all"
+    }
 }
 
 /// Reorder a healthy TURN pool by region prefix match against an optional
@@ -397,5 +440,64 @@ mod geo_hint_tests {
         let ordered = order_by_geo(pool, Some("unknown"));
         let urls: Vec<_> = ordered.iter().map(|s| s.cfg.url.clone()).collect();
         assert_eq!(urls, vec!["turn:ru-msk", "turn:de-fra"]);
+    }
+}
+
+#[cfg(test)]
+mod ice_policy_tests {
+    use super::decide_ice_transport_policy;
+
+    #[test]
+    fn decide_policy_defaults_to_all() {
+        // Pool empty, no force regions → "all".
+        assert_eq!(decide_ice_transport_policy(true, None, &[]), "all");
+    }
+
+    #[test]
+    fn decide_policy_returns_all_when_pool_empty_even_with_force() {
+        // No relay available at all — forcing relay would break the client,
+        // so we degrade open to "all" even when the hint matches the list.
+        let force = vec!["ru".to_string()];
+        assert_eq!(
+            decide_ice_transport_policy(true, Some("ru-spb"), &force),
+            "all"
+        );
+    }
+
+    #[test]
+    fn decide_policy_returns_relay_on_match() {
+        // Pool populated, hint prefix-matches a force entry.
+        let force = vec!["ru".to_string()];
+        assert_eq!(
+            decide_ice_transport_policy(false, Some("ru-spb"), &force),
+            "relay"
+        );
+    }
+
+    #[test]
+    fn decide_policy_case_insensitive_match() {
+        // Hint arrives uppercase but we lowercase internally; force_regions
+        // are already lowercased by Config::from_env.
+        let force = vec!["ru-msk".to_string()];
+        assert_eq!(
+            decide_ice_transport_policy(false, Some("RU-MSK"), &force),
+            "relay"
+        );
+    }
+
+    #[test]
+    fn decide_policy_no_match_returns_all() {
+        let force = vec!["ru".to_string()];
+        assert_eq!(
+            decide_ice_transport_policy(false, Some("de-fra"), &force),
+            "all"
+        );
+    }
+
+    #[test]
+    fn decide_policy_none_hint_returns_all() {
+        // No hint from client → can't decide to force relay for them.
+        let force = vec!["ru".to_string()];
+        assert_eq!(decide_ice_transport_policy(false, None, &force), "all");
     }
 }

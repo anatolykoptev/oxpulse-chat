@@ -23,6 +23,7 @@ pub fn base_state() -> oxpulse_chat::router::AppState {
         turn_pool: oxpulse_chat::turn_pool::TurnPool::empty(),
         metrics: std::sync::Arc::new(oxpulse_chat::metrics::Metrics::new()),
         metrics_token: String::new(),
+        force_relay_regions: vec![],
     }
 }
 
@@ -66,6 +67,7 @@ impl TestApp {
             turn_pool: oxpulse_chat::turn_pool::TurnPool::empty(),
             metrics: std::sync::Arc::new(oxpulse_chat::metrics::Metrics::new()),
             metrics_token: String::new(),
+            force_relay_regions: vec![],
         };
 
         let router = oxpulse_chat::router::build_router(state, "/nonexistent");
