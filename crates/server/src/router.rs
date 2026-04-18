@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::extract::ws::WebSocketUpgrade;
-use axum::extract::{Path, State};
+use axum::extract::{ConnectInfo, Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_SECURITY_POLICY, CONTENT_TYPE, X_FRAME_OPTIONS};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::IntoResponse;
@@ -121,8 +121,17 @@ async fn ws_call(
     ws: WebSocketUpgrade,
     Path(room_id): Path<String>,
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    connect_info: ConnectInfo<std::net::SocketAddr>,
 ) -> impl IntoResponse {
-    oxpulse_signaling::ws_call_handler(ws, Path(room_id), State(state.rooms)).await
+    oxpulse_signaling::ws_call_handler(
+        ws,
+        Path(room_id),
+        State(state.rooms),
+        headers,
+        connect_info,
+    )
+    .await
 }
 
 /// Extract a lowercased geo hint from client headers.
