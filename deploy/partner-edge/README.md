@@ -9,7 +9,7 @@ The bundle runs three containers on the partner's VPS:
 - **Caddy** — TLS termination (ACME via Let's Encrypt), SPA CDN, reverse
   proxy of `/api/*` + `/ws/*` through the tunnel.
 - **xray-client** — VLESS + Reality + XHTTP tunnel to the main backend
-  (`krolik-server:5349`). Exposes only `:3080` inside the docker network.
+  (`<backend>:5349` — operator-side xray-reality). Exposes only `:3080` inside the docker network.
 - **coturn** — TURN/STUN relay with HMAC auth (`:3478/udp+tcp`,
   `:5349/tcp` for TURNS). Runs in host network mode.
 
@@ -166,7 +166,7 @@ Request flow:
 ```
 browser → https://call.rvpn.online/          (Caddy)
       → xray-client:3080                     (VLESS+Reality to backend)
-      → krolik-server:5349                   (xray-reality)
+      → <backend>:5349                       (xray-reality)
       → oxpulse-chat:8907                    (Rust/Axum)
 ```
 
