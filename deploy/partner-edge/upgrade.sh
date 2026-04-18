@@ -41,6 +41,35 @@ for arg in "$@"; do
 	esac
 done
 
+V01_TO_V02=0
+
+maybe_v01_to_v02_preflight() {
+	[[ "$CURRENT" =~ ^v0\.1($|\.) ]] || return 0
+	[[ "$TARGET"  =~ ^v0\.2($|\.) ]] || return 0
+
+	log "detected v0.1.x → v0.2.x migration — running DNS preflight"
+
+	[[ -n "${TURNS_SUBDOMAIN:-}" ]] || die "TURNS_SUBDOMAIN missing from $STATE_FILE — state file is from a pre-Phase-6 build, re-run install.sh to populate it"
+	[[ -n "${PARTNER_DOMAIN:-}"  ]] || die "PARTNER_DOMAIN missing from $STATE_FILE — state file is from a pre-Phase-6 build, re-run install.sh to populate it"
+
+	PUBLIC_IP=$(curl -fsS --max-time 5 https://ifconfig.me 2>/dev/null || curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)
+	[[ -n "$PUBLIC_IP" ]] || die "could not determine public IP (both ifconfig.me and api.ipify.org failed)"
+
+	command -v dig >/dev/null 2>&1 || die "'dig' is not installed — install dnsutils (apt-get install dnsutils) and retry"
+	DIG_IP=$(dig +short +time=3 +tries=1 "${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN}" A | tail -n1)
+
+	if [[ "$DIG_IP" != "$PUBLIC_IP" ]]; then
+		die "DNS preflight failed: ${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN} resolves to '${DIG_IP:-<no record>}' but this server's public IP is '${PUBLIC_IP}'.
+Please create an A-record:
+  ${TURNS_SUBDOMAIN}.${PARTNER_DOMAIN} -> ${PUBLIC_IP}
+Wait for propagation, then re-run upgrade."
+	fi
+
+	V01_TO_V02=1
+}
+
+maybe_v01_to_v02_preflight
+
 if [[ "$MODE" == rollback ]]; then
 	[[ -r "$PREV_STATE_FILE" && -r "$PREV_COMPOSE_FILE" ]] \
 		|| die "no previous version recorded — nothing to roll back to"
@@ -102,3 +131,9 @@ if ! "$HEALTHCHECK" --local; then
 fi
 
 log "upgraded to $TARGET successfully"
+
+if [[ "$V01_TO_V02" -eq 1 ]]; then
+	log "v0.1→v0.2: re-seeding templates via hydrate --reseed"
+	/usr/local/sbin/oxpulse-partner-edge-hydrate --reseed \
+		|| warn "hydrate --reseed exited non-zero — upgrade succeeded, but re-run 'oxpulse-partner-edge-hydrate --reseed' manually to ensure templates are current"
+fi
