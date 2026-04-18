@@ -1,8 +1,8 @@
 -- Partner edge-node registry.
 --
 -- One row per registered clone. Populated when a partner edge-node posts to
--- /api/partner/register with a valid bootstrap token; updated on each
--- subsequent heartbeat (last_seen_at).
+-- /api/partner/register with a valid bootstrap token. The last_seen_at
+-- column is updated on each subsequent heartbeat.
 --
 -- public_ip uses TEXT rather than INET to match the project convention
 -- established in 20260417_partner_tokens.sql -- sqlx ipnetwork feature is
