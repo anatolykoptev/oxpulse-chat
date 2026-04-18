@@ -19,7 +19,7 @@ SYSTEMD_DIR=/etc/systemd/system
 # shellcheck disable=SC2034  # REGISTRY referenced by templates via IMAGE_VERSION, kept for override env surface
 REGISTRY="${OXPULSE_IMAGE_REGISTRY:-ghcr.io/anatolykoptev}"
 REPO_RAW="${OXPULSE_REPO_RAW:-https://raw.githubusercontent.com/anatolykoptev/oxpulse-chat/main/deploy/partner-edge}"
-BACKEND_API="${OXPULSE_BACKEND_API:-https://api.oxpulse.chat}"
+BACKEND_API="${OXPULSE_BACKEND_API:-${OXPULSE_BACKEND_URL:-https://oxpulse.chat}}"
 
 log()  { printf '\033[32m==>\033[0m %s\n' "$*" >&2; }
 warn() { printf '\033[33m!!\033[0m  %s\n' "$*" >&2; }
