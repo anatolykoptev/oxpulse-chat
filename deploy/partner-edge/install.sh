@@ -166,6 +166,36 @@ if [[ -z "$PRIVATE_IP" ]]; then
 fi
 log "  public=$PUBLIC_IP private=${PRIVATE_IP:-<none>}"
 
+# Detect local checkout directory for template files (used in Steps 5 and 9).
+src_dir=""
+if [[ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/docker-compose.yml.tpl" ]]; then
+	src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
+# ---------- Step 3b: pre-pull images ----------
+# Runs unconditionally (bake + full-install modes).
+# In bake mode: caches images into the VM for snapshotting (spec line 1507).
+# In full-install mode: ensures images are ready before compose-up.
+log "[3b] pulling images (image_version=$IMAGE_VERSION)"
+if [[ $DRY_RUN -eq 0 ]]; then
+	tpl_src=""
+	if [[ -n "$src_dir" && -f "$src_dir/docker-compose.yml.tpl" ]]; then
+		tpl_src="$src_dir/docker-compose.yml.tpl"
+	else
+		tpl_src=$(mktemp)
+		curl -fsSL "$REPO_RAW/docker-compose.yml.tpl" -o "$tpl_src"
+	fi
+	while IFS= read -r img_line; do
+		img="${img_line#*image: }"
+		img="${img//\{\{IMAGE_VERSION\}\}/$IMAGE_VERSION}"
+		img="${img//[[:space:]]/}"
+		[ -z "$img" ] && continue
+		docker pull "$img"
+	done < <(grep -E '^[[:space:]]+image:' "$tpl_src")
+else
+	warn "  [dry-run] would: docker pull images from docker-compose.yml.tpl"
+fi
+
 # ---------- Steps 4-8: hydrate path (secrets + service start) ----------
 # Skipped in --bake mode; runs in legacy (default) mode only.
 if [ "$BAKE_MODE" = "0" ]; then
@@ -231,9 +261,7 @@ if [[ $DRY_RUN -eq 0 ]]; then
 	install -d -m 0700 "$PREFIX_LIB"
 fi
 
-src_dir=""
-if [[ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/docker-compose.yml.tpl" ]]; then
-	src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "$src_dir" ]]; then
 	log "  using templates from local checkout: $src_dir"
 fi
 
@@ -310,24 +338,16 @@ EOF
 	chmod 0600 "$PREFIX_LIB/install.env"
 fi
 
-# ---------- Step 6: pull images ----------
-log "[6/10] pulling images (tag=$IMAGE_VERSION)"
-if [[ $DRY_RUN -eq 0 ]]; then
-	(cd "$PREFIX_ETC" && docker compose pull)
-else
-	warn "  [dry-run] would: docker compose pull"
-fi
-
-# ---------- Step 7: start ----------
-log "[7/10] starting services"
+# ---------- Step 6: start ----------
+log "[6/10] starting services"
 if [[ $DRY_RUN -eq 0 ]]; then
 	(cd "$PREFIX_ETC" && docker compose up -d)
 else
 	warn "  [dry-run] would: docker compose up -d"
 fi
 
-# ---------- Step 8: healthcheck ----------
-log "[8/10] waiting for healthcheck (timeout 120s)"
+# ---------- Step 7: healthcheck ----------
+log "[7/10] waiting for healthcheck (timeout 120s)"
 if [[ $DRY_RUN -eq 0 ]]; then
 	deadline=$(( $(date +%s) + 120 ))
 	hc_script="$PREFIX_SBIN/oxpulse-partner-edge-healthcheck"
@@ -355,8 +375,8 @@ fi
 
 fi  # end BAKE_MODE=0 (hydrate path)
 
-# ---------- Step 9: systemd ----------
-log "[9/10] installing systemd unit"
+# ---------- Step 8: systemd ----------
+log "[8/10] installing systemd unit"
 if [[ $DRY_RUN -eq 0 ]]; then
 	unit_src=""
 	if [[ -n "$src_dir" && -f "$src_dir/systemd/oxpulse-partner-edge.service" ]]; then

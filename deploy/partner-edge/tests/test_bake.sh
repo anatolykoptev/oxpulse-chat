@@ -25,4 +25,19 @@ fi
 # 4. Script still parses cleanly.
 bash -n "$SCRIPT" || { echo "FAIL: bash -n failed"; exit 1; }
 
+# 5. Image pre-pull (docker pull) is NOT gated behind BAKE_MODE=0.
+#    Bake mode must cache images into the snapshot; gating the pull defeats that.
+if awk '
+    /^if \[ "\$BAKE_MODE" = "0" \]/ { gate=1 }
+    /^fi(\s|$)/ { gate=0 }
+    /docker pull / { if (gate) { print "docker pull gated inside BAKE_MODE=0 at line " NR; exit 1 } }
+' "$SCRIPT"; then
+    :
+else
+    echo "FAIL: docker pull is gated behind BAKE_MODE=0 — bake cannot cache images"
+    exit 1
+fi
+# Also verify at least one docker pull line exists.
+grep -qE 'docker pull ' "$SCRIPT" || { echo "FAIL: no docker pull found in script"; exit 1; }
+
 echo "PASS: install.sh --bake structure present"
