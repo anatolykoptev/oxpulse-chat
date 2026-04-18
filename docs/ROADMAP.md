@@ -86,8 +86,8 @@ Tracked in `docs/superpowers/plans/2026-04-10-oxpulse-chat-partner-launch.md` + 
 - [x] `TurnPool` container + accessors (Task 2.1-2.2)
 - [x] STUN binding-request probe loop with health transitions (Task 2.3)
 - [x] `/api/turn-credentials` serves only healthy pool members (Task 2.4)
-- [ ] Geo-hint from client headers (`X-Client-Region` / `CF-IPCountry`) (Task 2.5)
-- [ ] SIGHUP hot-reload of TURN server list via ArcSwap (Task 2.6)
+- [x] Geo-hint from client headers (`X-Client-Region` / `CF-IPCountry`) (Task 2.5)
+- [x] SIGHUP hot-reload of TURN server list via ArcSwap (Task 2.6)
 
 ### Partner-edge v0.2.0 (TURNS-on-:443, Variant A')
 - [x] Architectural PoC + DECISION.md (caddy-l4 SNI mux)
@@ -106,14 +106,25 @@ Tracked in `docs/superpowers/plans/2026-04-10-oxpulse-chat-partner-launch.md` + 
 ### Observability
 - [x] Prometheus `/metrics` endpoint with token auth (Task 3.1)
 - [x] 10 SLO-aligned metrics wired into hot paths (Task 3.2)
-- [ ] Dozor alert rules (Task 3.3)
-- [ ] Grafana dashboard (Task 3.4)
-- [ ] Runbooks for TURN outage + WS failure (Task 3.5)
+- [ ] Dozor alert rules (Task 3.3) — deferred
+- [ ] Grafana dashboard (Task 3.4) — deferred
+- [ ] Runbooks for TURN outage + WS failure (Task 3.5) — deferred
 
 ### Abuse protection
-- [ ] Per-IP rate limit on `/api/turn-credentials` + `/api/event` (Task 4.1)
-- [ ] Room-ID entropy validation + join rate limit (Task 4.2)
-- [ ] Server-decided `iceTransportPolicy` (Task 4.3)
+- [x] Per-IP rate limit on `/api/turn-credentials` + `/api/event` (Task 4.1)
+- [x] Room-ID entropy validation + join rate limit (Task 4.2)
+- [x] Server-decided `iceTransportPolicy` (Task 4.3)
+
+### Anti-censorship hardening (April 2026)
+- [x] 5-way SNI rotation across samsung.com subdomains (all covered by `*.samsung.com` wildcard SAN — active-probing defense intact)
+- [x] Deterministic per-node SNI picking via sha256(node_id) — diversifies (IP, SNI) fingerprint for ТСПУ DPI clustering
+- [x] ML-KEM-768 post-quantum VLESS encryption on `:5349` (Harvest-Now-Decrypt-Later defense against future CRQC)
+- [x] `PartialReality` + `assemble_reality_creds` flow — encryption/SNI picked per-node at register time
+- [x] Dead DoH block in xray-client template removed (xray-client never resolves hostnames in our architecture)
+- [x] Xray 26.x verified safe from uTLS CVE-2026-27017 (cipher-suite fingerprint mismatch on GREASE ECH)
+- [ ] Xray `fingerprint: "random"` or per-node diversified presets — pending
+- [ ] VLESS Seed (XTLS Vision Flow) — not XHTTP-compatible, skipped
+- [ ] Multi-domain DoH for future hostname-based BACKEND failover (P0.2 second-backend track)
 
 ### Load & chaos
 - [ ] WebSocket load test (1000 concurrent joins) (Task 5.1)
