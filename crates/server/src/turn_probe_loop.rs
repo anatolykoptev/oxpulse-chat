@@ -36,6 +36,7 @@ impl TurnPool {
         &self,
         interval: Duration,
         unhealthy_after: u32,
+        healthy_gauge: Option<std::sync::Arc<prometheus::IntGauge>>,
     ) -> tokio::task::JoinHandle<()> {
         let servers = self.servers.clone();
         let handle = tokio::spawn(async move {
@@ -98,6 +99,13 @@ impl TurnPool {
                         }
                     }
                 }
+                if let Some(ref g) = healthy_gauge {
+                    let n = servers
+                        .iter()
+                        .filter(|s| s.healthy.load(Ordering::Relaxed))
+                        .count();
+                    g.set(n as i64);
+                }
             }
         });
         handle
@@ -143,7 +151,7 @@ mod tests {
             0,
             &format!("turn:{}:{}", addr.ip(), addr.port()),
         )]);
-        pool.start_probe_task(Duration::from_millis(50), 2);
+        pool.start_probe_task(Duration::from_millis(50), 2, None);
 
         // With 3s probe timeout, 2 failures accrue at ~3s cadence; allow 8s.
         let deadline = std::time::Instant::now() + Duration::from_secs(8);
@@ -178,7 +186,7 @@ mod tests {
             0,
             &format!("turn:{}:{}", addr.ip(), addr.port()),
         )]);
-        pool.start_probe_task(Duration::from_millis(50), 3);
+        pool.start_probe_task(Duration::from_millis(50), 3, None);
 
         let deadline = std::time::Instant::now() + Duration::from_secs(3);
         let server = pool.all()[0].clone();

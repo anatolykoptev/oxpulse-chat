@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 
+use crate::metrics::SignalingMetrics;
 use crate::rooms::Room;
 
 /// How long an empty room stays alive before cleanup (seconds).
@@ -19,19 +20,22 @@ pub(crate) fn now_secs() -> i64 {
 }
 
 /// Start a background task that removes rooms empty for longer than the grace period.
-pub(crate) fn start_cleanup_task(inner: Arc<DashMap<String, Arc<Room>>>) {
+pub(crate) fn start_cleanup_task(
+    inner: Arc<DashMap<String, Arc<Room>>>,
+    metrics: Arc<dyn SignalingMetrics>,
+) {
     tokio::spawn(async move {
         let mut interval =
             tokio::time::interval(std::time::Duration::from_secs(CLEANUP_INTERVAL_SECS));
         loop {
             interval.tick().await;
-            cleanup_expired(&inner);
+            cleanup_expired(&inner, &*metrics);
         }
     });
 }
 
 /// Remove rooms that have been empty longer than the grace period.
-pub(crate) fn cleanup_expired(inner: &DashMap<String, Arc<Room>>) {
+pub(crate) fn cleanup_expired(inner: &DashMap<String, Arc<Room>>, metrics: &dyn SignalingMetrics) {
     let now = now_secs();
     let mut to_remove = Vec::new();
     for entry in inner.iter() {
@@ -45,7 +49,9 @@ pub(crate) fn cleanup_expired(inner: &DashMap<String, Arc<Room>>) {
         if let Some(room) = inner.get(&key) {
             if room.count.load(Ordering::SeqCst) == 0 {
                 drop(room);
-                inner.remove(&key);
+                if inner.remove(&key).is_some() {
+                    metrics.on_room_closed();
+                }
                 tracing::debug!(room_id = %key, "room_expired");
             }
         }

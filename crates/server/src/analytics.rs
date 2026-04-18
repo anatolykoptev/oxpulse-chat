@@ -51,8 +51,14 @@ pub async fn ingest(State(state): State<AppState>, Json(batch): Json<EventBatch>
         .bind(&event.data)
         .execute(pool)
         .await;
-        if let Err(e) = res {
-            tracing::warn!(error = %e, event_type = %event.event_type, "analytics_insert_failed");
+        match res {
+            Ok(_) => {
+                state.metrics.analytics_events_total.with_label_values(&["ok"]).inc();
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, event_type = %event.event_type, "analytics_insert_failed");
+                state.metrics.analytics_events_total.with_label_values(&["err"]).inc();
+            }
         }
     }
 
