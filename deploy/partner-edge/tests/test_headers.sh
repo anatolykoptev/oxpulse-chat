@@ -17,3 +17,10 @@ if echo "$resp" | grep -qi '^alt-svc:'; then
 fi
 
 echo "PASS: no Via or Alt-Svc in response headers"
+
+# Also verify no UDP 443 listener (HTTP/3 dropped under ТСПУ hardening)
+if timeout 5 nmap -sU -p 443 "${DOMAIN}" 2>/dev/null | grep -q '443/udp\s*open'; then
+  echo "FAIL: UDP 443 listener detected (HTTP/3)" >&2
+  exit 1
+fi
+echo "PASS: UDP 443 closed"

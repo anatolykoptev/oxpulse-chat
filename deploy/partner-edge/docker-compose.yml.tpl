@@ -16,7 +16,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp"          # HTTP/3 (QUIC)
     environment:
       PARTNER_DOMAIN: "{{PARTNER_DOMAIN}}"
       PARTNER_ID: "{{PARTNER_ID}}"
