@@ -6,7 +6,7 @@
 #   /_app/immutable → xray-client:3080 BUT cached 1 year at Caddy
 #   /api/*          → xray-client:3080 with X-Forwarded-Host header
 #   /ws/*           → xray-client:3080 (WebSocket upgrade preserved by Caddy)
-#   turns.{{TURNS_SUBDOMAIN}}.{{PARTNER_DOMAIN}} TLS passthrough → coturn:5349
+#   {{TURNS_SUBDOMAIN}}.{{PARTNER_DOMAIN}} TLS passthrough → coturn:5349
 #
 # caddy-l4 TURNS SNI mux: listener_wrappers peeks TLS ClientHello BEFORE Caddy
 # HTTP app sees it. Matching SNI → raw TCP to coturn (coturn terminates own TLS).
