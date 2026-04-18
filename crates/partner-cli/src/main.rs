@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let db_url = std::env::var("DATABASE_URL")
-        .context("DATABASE_URL env var must be set (source ~/deploy/krolik-server/.env first)")?;
+        .context("DATABASE_URL env var must be set (set it in your operator environment)")?;
     let pool = PgPoolOptions::new()
         .max_connections(2)
         .connect(&db_url)
