@@ -34,6 +34,7 @@ thiserror = "2"
 regex = "1"
 prometheus = { version = "0.13", default-features = false }
 governor = "0.6"
+arc-swap = "1.7"
 
 [dev-dependencies]
 axum-test = "20"

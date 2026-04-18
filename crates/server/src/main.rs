@@ -45,6 +45,38 @@ async fn main() {
         Some(std::sync::Arc::new(metrics.turn_servers_healthy.clone())),
     );
 
+    // Task 2.6 — SIGHUP hot-reload of TURN_SERVERS. UNIX-only; on Windows
+    // SIGHUP doesn't exist so we simply skip spawning the task.
+    #[cfg(unix)]
+    {
+        let reload_pool = turn_pool.clone();
+        tokio::spawn(async move {
+            let mut hup = match signal::unix::signal(signal::unix::SignalKind::hangup()) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!(
+                        error = %e,
+                        "failed to install SIGHUP handler — hot-reload disabled"
+                    );
+                    return;
+                }
+            };
+            while hup.recv().await.is_some() {
+                let new_cfg = Config::from_env();
+                let new_servers = new_cfg.turn_servers;
+                let count = new_servers.len();
+                let (added, removed, preserved) = reload_pool.reload(new_servers);
+                tracing::info!(
+                    added,
+                    removed,
+                    preserved,
+                    total = count,
+                    "turn_pool_reloaded"
+                );
+            }
+        });
+    }
+
     let state = AppState {
         rooms,
         turn_secret: config.turn_secret,

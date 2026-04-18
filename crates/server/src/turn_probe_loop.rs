@@ -32,32 +32,39 @@ impl TurnPool {
     /// Spawn a background task that probes each server on `interval` and
     /// updates `healthy` / `consecutive_failures` / `last_rtt_ms`. Logs on
     /// state transitions only (turn_server_up / turn_server_down).
+    ///
+    /// The probe loop re-reads the [`arc_swap::ArcSwap`] snapshot at the
+    /// start of every tick via `load_full()`, so a concurrent `reload` is
+    /// picked up on the next iteration without the in-flight probes
+    /// seeing a torn mid-swap state.
     pub fn start_probe_task(
         &self,
         interval: Duration,
         unhealthy_after: u32,
         healthy_gauge: Option<std::sync::Arc<prometheus::IntGauge>>,
     ) -> tokio::task::JoinHandle<()> {
-        let servers = self.servers.clone();
-        let handle = tokio::spawn(async move {
+        let servers_swap = self.servers.clone();
+        tokio::spawn(async move {
             let mut tick = tokio::time::interval(interval);
             loop {
                 tick.tick().await;
-                for server in servers.iter() {
+                // Fresh snapshot per tick — picks up any `reload`-installed
+                // Vec on the next iteration. `load_full()` returns a plain
+                // `Arc<Vec<_>>` so we never hold an `arc_swap::Guard`
+                // across `.await`, which keeps the swap epoch slot free
+                // and sidesteps future-sized lifetime puzzles.
+                let snapshot = servers_swap.load_full();
+                for server in snapshot.iter() {
                     let addr = match parse_host_port(&server.cfg.url).await {
                         Some(a) => a,
                         None => {
                             // DNS / URL parse failure counts as a probe failure so that
                             // servers with stale DNS entries eventually fall out of the
                             // healthy set instead of being silently rotated forever.
-                            let fails = server
-                                .consecutive_failures
-                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                                + 1;
+                            let fails =
+                                server.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
                             if fails >= unhealthy_after
-                                && server
-                                    .healthy
-                                    .swap(false, std::sync::atomic::Ordering::Relaxed)
+                                && server.healthy.swap(false, Ordering::Relaxed)
                             {
                                 tracing::warn!(
                                     region = %server.cfg.region,
@@ -100,15 +107,17 @@ impl TurnPool {
                     }
                 }
                 if let Some(ref g) = healthy_gauge {
-                    let n = servers
+                    // Use the same snapshot we just probed so the gauge
+                    // reflects exactly the set we iterated — a reload
+                    // mid-tick refreshes on the next iteration.
+                    let n = snapshot
                         .iter()
                         .filter(|s| s.healthy.load(Ordering::Relaxed))
                         .count();
                     g.set(n as i64);
                 }
             }
-        });
-        handle
+        })
     }
 }
 
