@@ -20,6 +20,9 @@ pub struct RealityCreds {
     pub reality_public_key: String,
     pub reality_short_id: String,
     pub reality_server_name: String,
+    /// Empty string = legacy "none" encryption. Non-empty = VLESS
+    /// Encryption spec (e.g. ML-KEM-768 post-quantum hybrid).
+    pub reality_encryption: String,
 }
 
 /// Successful registration response body.

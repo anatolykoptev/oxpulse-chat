@@ -63,6 +63,11 @@ pub struct PartialReality {
     pub reality_public_key: String,
     pub reality_short_id: String,
     pub server_names: Vec<String>,
+    /// VLESS encryption config string (e.g. "mlkem768x25519plus.native.0rtt.<key>").
+    /// Empty string means "none" (legacy, non-PQ). When set, must match the
+    /// paired `decryption` string on the xray-reality inbound this endpoint
+    /// points to; mismatch causes the tunnel to fail handshake.
+    pub reality_encryption: String,
 }
 
 pub fn load_reality_from_env() -> Result<PartialReality, RegistrationError> {
@@ -92,11 +97,14 @@ pub fn load_reality_from_env() -> Result<PartialReality, RegistrationError> {
         return Err(RegistrationError::RealityNotConfigured);
     }
 
+    let reality_encryption = std::env::var("PARTNER_REALITY_ENCRYPTION").unwrap_or_default();
+
     Ok(PartialReality {
         reality_uuid,
         reality_public_key,
         reality_short_id,
         server_names,
+        reality_encryption,
     })
 }
 
@@ -110,6 +118,7 @@ pub fn assemble_reality_creds(partial: PartialReality, node_id: &str) -> Reality
         reality_public_key: partial.reality_public_key,
         reality_short_id: partial.reality_short_id,
         reality_server_name,
+        reality_encryption: partial.reality_encryption,
     }
 }
 
@@ -192,6 +201,7 @@ mod server_name_tests {
             reality_public_key: "p".into(),
             reality_short_id: "s".into(),
             server_names: vec!["one".into(), "two".into(), "three".into()],
+            reality_encryption: "test-enc".into(),
         };
         let creds = assemble_reality_creds(partial, "node-x");
         assert_eq!(creds.reality_uuid, "u");
@@ -206,5 +216,36 @@ mod server_name_tests {
         for id in ["a", "b", "c", "xyz"] {
             assert_eq!(pick_server_name(&names, id), "only-sni");
         }
+    }
+}
+
+#[cfg(test)]
+mod encryption_tests {
+    use super::*;
+
+    #[test]
+    fn assemble_passes_encryption_through() {
+        let partial = PartialReality {
+            reality_uuid: "u".into(),
+            reality_public_key: "p".into(),
+            reality_short_id: "s".into(),
+            server_names: vec!["sni1".into()],
+            reality_encryption: "mlkem768x25519plus.native.0rtt.TEST".into(),
+        };
+        let creds = assemble_reality_creds(partial, "node-abc");
+        assert_eq!(creds.reality_encryption, "mlkem768x25519plus.native.0rtt.TEST");
+    }
+
+    #[test]
+    fn assemble_passes_empty_encryption() {
+        let partial = PartialReality {
+            reality_uuid: "u".into(),
+            reality_public_key: "p".into(),
+            reality_short_id: "s".into(),
+            server_names: vec!["sni1".into()],
+            reality_encryption: "".into(),
+        };
+        let creds = assemble_reality_creds(partial, "node-xyz");
+        assert_eq!(creds.reality_encryption, "");
     }
 }

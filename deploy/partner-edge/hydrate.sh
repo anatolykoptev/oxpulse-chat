@@ -127,6 +127,7 @@ REALITY_UUID=$(jq_get reality_uuid)
 REALITY_PUBLIC_KEY=$(jq_get reality_public_key)
 REALITY_SHORT_ID=$(jq_get reality_short_id)
 REALITY_SERVER_NAME=$(jq_get reality_server_name)
+REALITY_ENCRYPTION=$(jq_get reality_encryption)
 
 [[ -n "$NODE_ID" ]]             || die "node_id missing from registration response"
 [[ -n "$BACKEND_ENDPOINT" ]]    || die "backend_endpoint missing from registration response"
@@ -136,6 +137,8 @@ REALITY_SERVER_NAME=$(jq_get reality_server_name)
 [[ -n "$REALITY_PUBLIC_KEY" ]]  || die "reality_public_key missing from registration response"
 [[ -n "$REALITY_SHORT_ID" ]]    || die "reality_short_id missing from registration response"
 [[ -z "$REALITY_SERVER_NAME" ]] && REALITY_SERVER_NAME="www.samsung.com"
+# Empty encryption means legacy (non-PQ) tunnel — xray requires literal "none".
+[[ -z "$REALITY_ENCRYPTION" ]] && REALITY_ENCRYPTION="none"
 
 # Split backend_endpoint "host:port".
 BACKEND_HOST="${BACKEND_ENDPOINT%:*}"
@@ -185,6 +188,7 @@ render() {
         [REALITY_PUBLIC_KEY]="${REALITY_PUBLIC_KEY}"
         [REALITY_SHORT_ID]="${REALITY_SHORT_ID}"
         [REALITY_SERVER_NAME]="${REALITY_SERVER_NAME}"
+        [REALITY_ENCRYPTION]="${REALITY_ENCRYPTION}"
         [PUBLIC_IP]="${PUBLIC_IP}"
         [PRIVATE_IP]="${PRIVATE_IP:-}"
         [EXTERNAL_IP_LINE]="${EXTERNAL_IP_LINE}"
