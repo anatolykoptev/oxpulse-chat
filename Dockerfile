@@ -11,25 +11,29 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates/signaling/Cargo.toml crates/signaling/Cargo.toml
 COPY crates/turn/Cargo.toml crates/turn/Cargo.toml
 COPY crates/server/Cargo.toml crates/server/Cargo.toml
-RUN mkdir -p crates/signaling/src crates/turn/src crates/server/src && \
+COPY crates/partner-cli/Cargo.toml crates/partner-cli/Cargo.toml
+RUN mkdir -p crates/signaling/src crates/turn/src crates/server/src crates/partner-cli/src && \
     echo "fn main(){}" > crates/server/src/main.rs && \
+    echo "fn main(){}" > crates/partner-cli/src/main.rs && \
     touch crates/signaling/src/lib.rs crates/turn/src/lib.rs crates/server/src/lib.rs
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release --locked --bin oxpulse-chat 2>/dev/null || true
+    cargo build --release --locked --bin oxpulse-chat --bin partner-cli 2>/dev/null || true
 
 # Layer 2: source — clean workspace crates so cargo rebuilds them
 COPY crates/ crates/
 COPY config/ config/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo clean -p oxpulse-signaling -p oxpulse-turn -p oxpulse-chat --release 2>/dev/null || true && \
-    cargo build --release --locked --bin oxpulse-chat && \
-    cp target/release/oxpulse-chat /binary
+    cargo clean -p oxpulse-signaling -p oxpulse-turn -p oxpulse-chat -p partner-cli --release 2>/dev/null || true && \
+    cargo build --release --locked --bin oxpulse-chat --bin partner-cli && \
+    cp target/release/oxpulse-chat /binary && \
+    cp target/release/partner-cli /binary-partner-cli
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /binary /usr/local/bin/oxpulse-chat
+COPY --from=builder /binary-partner-cli /usr/local/bin/partner-cli
 COPY assets/room/ /app/room/
 
 ENV PORT=3000
