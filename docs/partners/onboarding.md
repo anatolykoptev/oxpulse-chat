@@ -138,7 +138,7 @@ dig +short <turns-subdomain>.<your-domain> @1.1.1.1
 **Upgrading from v0.1.** `upgrade.sh` runs the same DNS preflight on
 startup and aborts before any mutation if the turns-subdomain record is
 missing. Add the record and re-run `upgrade.sh`. The script is
-co-located with `install.sh` in `deploy/turn-node/`.
+co-located with `install.sh` in `deploy/partner-edge/`.
 
 ## 4. One-command install
 
