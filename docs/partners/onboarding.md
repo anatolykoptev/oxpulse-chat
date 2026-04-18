@@ -146,23 +146,48 @@ On a freshly provisioned VM (Debian 12, Ubuntu 22.04/24.04, RHEL/Alma/Rocky/Cent
 as root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/anatolykoptev/oxpulse-chat/main/deploy/turn-node/install.sh \
-  | TURN_SECRET='<shared-secret>' \
-    REGION='<operator-assigned>' \
-    PUBLIC_HOST='<dns-name-you-registered>' \
-    bash
+curl -fsSL https://github.com/anatolykoptev/oxpulse-chat/releases/latest/download/partner-edge-installer.sh \
+  | sudo bash -s -- \
+      --domain=<your-domain> \
+      --partner-id=<your-id> \
+      --token=<bootstrap-token>
 ```
 
-The installer:
-- detects the distro, installs `coturn` (+ `coturn-utils` on RHEL), `chrony`, and a firewall tool;
-- lays down `/etc/default/oxpulse-turn` (the one file you edit later — see
-  `deploy/turn-node/README.md` for the full variable list);
-- installs a systemd `ExecStartPre` oneshot that renders `/etc/turnserver.conf`
-  from a repo-controlled template on every restart;
-- opens the firewall (UDP 3478/3479, TCP 3478, UDP 49152-65535) via
-  `firewalld` or `ufw`;
-- enables `chronyd` — TURN credential TTL is HMAC-over-timestamp, so clock
-  drift breaks auth.
+Pin a specific version (recommended for reproducible deploys):
+
+```bash
+VERSION=0.2.0 curl -fsSL \
+  https://github.com/anatolykoptev/oxpulse-chat/releases/download/partner-edge-v0.2.0/partner-edge-installer.sh \
+  | sudo bash -s -- --domain=<your-domain> --partner-id=<your-id> --token=<bootstrap-token>
+```
+
+The installer (bootstrap → full `install.sh` from the release tarball):
+- downloads the release bundle (`partner-edge-<version>.tar.gz`) + `SHA256SUMS`,
+  verifies the checksum, and extracts to a temporary directory;
+- detects the distro, installs Docker via `get.docker.com`, plus
+  `docker-compose-plugin` + `bind-utils` (RHEL) or `docker-compose-plugin` +
+  `dnsutils` (Debian);
+- registers the node via `POST /api/partner/register` using the bootstrap token,
+  receives the backend-assigned `turns_subdomain` (format `api-<6-hex>`);
+- renders the Caddyfile, coturn config, xray-client config, and
+  `docker-compose.yml` from templates;
+- issues ACME certs for both `<your-domain>` and
+  `<turns_subdomain>.<your-domain>` (see §3.2 — both DNS A-records must
+  already point at this VM's public IP before install);
+- starts three containers (Caddy + xray-client + coturn) and enables the
+  systemd `oxpulse-partner-edge-hydrate.service` for idempotent re-runs.
+
+### Legacy simple TURN-only relay
+
+If you only need a plain coturn relay (no TURNS-on-:443, no co-brand SPA):
+
+```bash
+curl -fsSL https://github.com/anatolykoptev/oxpulse-chat/releases/latest/download/turn-node-installer.sh \
+  | TURN_SECRET='<shared-secret>' REGION='<region>' bash
+```
+
+This is the `deploy/turn-node/` installer. It predates the partner-edge
+architecture and is still supported for partners who don't need TURNS-443.
 
 ## 5. Verify
 
