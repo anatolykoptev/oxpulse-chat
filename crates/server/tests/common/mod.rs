@@ -67,7 +67,12 @@ impl TestApp {
         let router = oxpulse_chat::router::build_router(state, "/nonexistent");
 
         tokio::spawn(async move {
-            axum::serve(listener, router).await.unwrap();
+            axum::serve(
+                listener,
+                router.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .unwrap();
         });
 
         TestApp { addr }
