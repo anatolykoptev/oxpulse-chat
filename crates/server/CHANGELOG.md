@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0](https://github.com/anatolykoptev/oxpulse-chat/compare/v0.2.0...v0.3.0) (2026-04-18)
+
+
+### Features
+
+* **branding:** unify product name to OxPulse, add partner co-brand credit ([a5fe2b0](https://github.com/anatolykoptev/oxpulse-chat/commit/a5fe2b080b75a01c1140987562e40b75392319b6))
+* **server:** /metrics endpoint with Prometheus text format + token auth ([#7](https://github.com/anatolykoptev/oxpulse-chat/issues/7)) ([8110bb0](https://github.com/anatolykoptev/oxpulse-chat/commit/8110bb020d60ede614e5b7beea23a367c7b587d9))
+* **server:** geo-hint from client headers reorders TurnPool (Task 2.5) ([#16](https://github.com/anatolykoptev/oxpulse-chat/issues/16)) ([61b4ef3](https://github.com/anatolykoptev/oxpulse-chat/commit/61b4ef3098791012cc8851501b9010c737f0b3d0))
+* **server:** partner registration API + admin CLI ([5ed5932](https://github.com/anatolykoptev/oxpulse-chat/commit/5ed59321effadba87b57650478d37ea785e7bd2f))
+* **server:** per-IP rate limit on /api/turn-credentials + /api/event (Task 4.1) ([#17](https://github.com/anatolykoptev/oxpulse-chat/issues/17)) ([d6e8bef](https://github.com/anatolykoptev/oxpulse-chat/commit/d6e8bef8910b42f4ce65377d94f682805beb69a9))
+* **server:** server-decided iceTransportPolicy in /api/turn-credentials (Task 4.3) ([#20](https://github.com/anatolykoptev/oxpulse-chat/issues/20)) ([9a90443](https://github.com/anatolykoptev/oxpulse-chat/commit/9a90443fe5a306189bb2a57dae9dae9fb8d09224))
+* **server:** SIGHUP hot-reload of TURN server list via ArcSwap (Task 2.6) ([#19](https://github.com/anatolykoptev/oxpulse-chat/issues/19)) ([82e1163](https://github.com/anatolykoptev/oxpulse-chat/commit/82e1163ba7ece11cab36043eff7d9fcfa4d394ff))
+* **server:** wire Prometheus metrics into all hot paths including 3 new SLO metrics ([#15](https://github.com/anatolykoptev/oxpulse-chat/issues/15)) ([2af3151](https://github.com/anatolykoptev/oxpulse-chat/commit/2af31514f7b0fb1f342b612bb62a8a6772c96bd9))
+* **server:** wire TurnPool probe loop + healthy-only /api/turn-credentials ([f6a39ce](https://github.com/anatolykoptev/oxpulse-chat/commit/f6a39ce610a7cd36add8cc026ea8296c00d8cea9))
+* **signaling:** room-id entropy guard + per-IP join rate limit (Task 4.2) ([#11](https://github.com/anatolykoptev/oxpulse-chat/issues/11)) ([4af0f3c](https://github.com/anatolykoptev/oxpulse-chat/commit/4af0f3c94667a30d7e7861ef7dc744541ed8c5e8))
+
+
+### Bug Fixes
+
+* **branding:** use proper PITER.NOW / Питер Сегодня partner wordmarks ([975c02e](https://github.com/anatolykoptev/oxpulse-chat/commit/975c02e15d8c22c162900b02372704f6f62d349a))
+* **migrate:** remove stray semicolon in partner_nodes comment ([4486d4f](https://github.com/anatolykoptev/oxpulse-chat/commit/4486d4f7d16715921fecde3ea8094a01a9fc9c58))
+* **partner-registry:** require PARTNER_BACKEND_ENDPOINT, drop broken default ([#6](https://github.com/anatolykoptev/oxpulse-chat/issues/6)) ([69f8c2b](https://github.com/anatolykoptev/oxpulse-chat/commit/69f8c2b1cbf0224b86cd5c53e893eaeee84806f0))
+
 ## [0.2.0](https://github.com/anatolykoptev/oxpulse-chat/compare/v0.1.0...v0.2.0) (2026-04-17)
 
 
