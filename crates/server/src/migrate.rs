@@ -20,6 +20,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "20260418_partner_nodes.sql",
         include_str!("../migrations/20260418_partner_nodes.sql"),
     ),
+    (
+        "20260419_visitor_id.sql",
+        include_str!("../migrations/20260419_visitor_id.sql"),
+    ),
 ];
 
 /// Split a SQL string into individual statements, respecting:
