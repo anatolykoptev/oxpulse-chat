@@ -4,7 +4,7 @@ use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{ConnectInfo, Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_SECURITY_POLICY, CONTENT_TYPE, X_FRAME_OPTIONS};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
-use axum::middleware::from_fn_with_state;
+use axum::middleware::{from_fn, from_fn_with_state};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -121,6 +121,10 @@ pub fn build_router(state: AppState, room_assets_dir: &str) -> Router {
             CONTENT_SECURITY_POLICY,
             HeaderValue::from_static("frame-ancestors 'none'"),
         ))
+        // Anonymous visitor-identity cookie. Set on SPA responses so the
+        // first byte a browser sees carries `ox_vid`; the middleware itself
+        // filters out /api/*, /ws/*, /_app/*, /fonts/*, /metrics.
+        .layer(from_fn(crate::visitor::ensure_visitor_cookie))
         .with_state(state)
 }
 
