@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/anatolykoptev/oxpulse-chat/compare/v0.4.0...v0.5.0) (2026-04-19)
+
+
+### Features
+
+* **analytics:** pipe ox_vid cookie into call_events.visitor_id ([d08a537](https://github.com/anatolykoptev/oxpulse-chat/commit/d08a537536cf5f718b41e95203c09c41409e2de8))
+* **visitor:** server-side anonymous identity cookie (ox_vid) ([44a62ae](https://github.com/anatolykoptev/oxpulse-chat/commit/44a62aebbbf201c56c8b34036e1a84a9fdc23f23))
+
+
+### Bug Fixes
+
+* **migrate:** register 20260419_visitor_id.sql in embedded migrations ([4723eb1](https://github.com/anatolykoptev/oxpulse-chat/commit/4723eb127a4c830252050223c9e80c11f695e0bb))
+
 ## [0.4.0](https://github.com/anatolykoptev/oxpulse-chat/compare/v0.3.0...v0.4.0) (2026-04-18)
 
 
