@@ -1,4 +1,4 @@
 {
-  "crates/server": "0.4.0",
+  "crates/server": "0.5.0",
   "deploy/turn-node": "1.0.0"
 }
